@@ -4,6 +4,17 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import { appendMessage, getHistory } from './services/conversationStore';
+import { generateReply } from './services/ai.service';
+import { sendWhatsAppText } from './services/metaSender';
+import { TenantAIConfig } from './types/ai.types';
+
+const aiConfig: TenantAIConfig = {
+  provider: 'openai',
+  model: 'gpt-4o-mini',
+  apiKey: null, // por enquanto usa chave do .env
+};
+
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
@@ -39,9 +50,47 @@ app.get('/webhook', (req: Request, res: Response) => {
 });
 
 // Meta webhook receiver (POST)
-app.post('/webhook', (req: Request, res: Response) => {
-  console.log('[webhook] Incoming payload:', JSON.stringify(req.body, null, 2));
+app.post('/webhook', async (req: Request, res: Response) => {
+  // Responde rápido para a Meta não retransmitir
   res.sendStatus(200);
+
+  try {
+    const entry = req.body?.entry?.[0];
+    const change = entry?.changes?.[0];
+    const value = change?.value;
+    const message = value?.messages?.[0];
+
+    if (!message) {
+      console.log('[webhook] Sem mensagem no payload (provavelmente status update)');
+      return;
+    }
+
+    const from: string = message.from;
+    const text: string | undefined =
+      message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
+
+    if (!from || !text) {
+      console.log('[webhook] Mensagem sem texto suportado, ignorando');
+      return;
+    }
+
+    console.log(`[webhook] Mensagem de ${from}: ${text}`);
+
+    const history = getHistory(from);
+    const reply = await generateReply(aiConfig, history, text);
+
+    appendMessage(from, 'user', text);
+    appendMessage(from, 'assistant', reply);
+
+    if (reply.startsWith('PEDIDO_CONFIRMADO:')) {
+      console.log(`[pedido] ${from} → ${reply}`);
+    }
+
+    await sendWhatsAppText(from, reply);
+    console.log(`[webhook] Resposta enviada para ${from}`);
+  } catch (err: any) {
+    console.error('[webhook] Erro processando mensagem:', err?.response?.data ?? err?.message ?? err);
+  }
 });
 
 // 404
