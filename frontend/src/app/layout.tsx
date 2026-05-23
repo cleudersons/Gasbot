@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import '../styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'GasBot SaaS',
-  description: 'Plataforma de automação para distribuidoras de gás',
+  title: 'SutoGas',
+  description: 'Plataforma de automação para distribuidoras de gás e água mineral',
 };
 
 export default function RootLayout({

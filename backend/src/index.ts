@@ -1,22 +1,50 @@
-import 'dotenv/config';
+import path from 'path';
+import dotenv from 'dotenv';
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import { appendMessage, getHistory } from './services/conversationStore';
+import { getSupabase } from './lib/supabase';
+import { buscarHistorico, salvarHistorico, Message } from './services/conversas.service';
 import { generateReply } from './services/ai.service';
-import { sendWhatsAppText } from './services/metaSender';
+import { salvarPedido, buscarPedidosPendentes, atualizarStatus } from './services/pedidos.service';
+import {
+  buscarEntregadorPorWhatsapp,
+} from './services/entregadores.service';
+import * as whatsappService from './services/whatsapp/whatsapp.service';
+import { getQRCode, getStatus } from './services/qrcode.service';
+import { enviarRelatorio } from './services/relatorio.service';
+import {
+  resolverAgenciaFromMeta,
+  avaliarTrial,
+  incrementarAtendimentoTrial,
+} from './services/agencia-routing';
+import { estaNoHorario, proximaAbertura, janelaHorarioStr } from './services/horario.service';
+import { distribuirPedido } from './services/distribuicao.service';
+import {
+  buscarCliente,
+  upsertCliente,
+  montarContextoCliente,
+} from './services/cliente.service';
 import { TenantAIConfig } from './types/ai.types';
+
+// inicia jobs (auto-start ao importar)
+import './jobs/entrega.job';
+import './jobs/relatorio.job';
+import './jobs/agendamento.job';
+import './jobs/lembrete.job';
+
+const app = express();
+const PORT = Number(process.env.PORT) || 3001;
 
 const aiConfig: TenantAIConfig = {
   provider: 'openai',
   model: 'gpt-4o-mini',
-  apiKey: null, // por enquanto usa chave do .env
+  apiKey: null,
 };
-
-const app = express();
-const PORT = Number(process.env.PORT) || 3001;
 
 app.use(helmet());
 app.use(cors());
@@ -28,82 +56,330 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok' });
-});
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-// Meta webhook verification (GET)
-app.get('/webhook', (req: Request, res: Response) => {
+// Meta webhook verification
+app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-
-  const verifyToken = process.env.META_VERIFY_TOKEN;
-
-  if (mode === 'subscribe' && token === verifyToken) {
-    console.log('[webhook] Verified by Meta');
+  if (mode === 'subscribe' && token === process.env.META_VERIFY_TOKEN) {
     return res.status(200).send(challenge);
   }
-
-  console.warn('[webhook] Verification failed');
   return res.sendStatus(403);
 });
 
-// Meta webhook receiver (POST)
-app.post('/webhook', async (req: Request, res: Response) => {
-  // Responde rápido para a Meta não retransmitir
+// Meta webhook receiver
+app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 
   try {
-    const entry = req.body?.entry?.[0];
-    const change = entry?.changes?.[0];
-    const value = change?.value;
+    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
     const message = value?.messages?.[0];
-
-    if (!message) {
-      console.log('[webhook] Sem mensagem no payload (provavelmente status update)');
-      return;
-    }
+    if (!message) return;
 
     const from: string = message.from;
     const text: string | undefined =
       message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
+    if (!from || !text) return;
 
-    if (!from || !text) {
-      console.log('[webhook] Mensagem sem texto suportado, ignorando');
+    const phoneNumberIdRecebedor: string | undefined = value?.metadata?.phone_number_id;
+
+    // Resolver agência destinatária
+    const agencia = await resolverAgenciaFromMeta(phoneNumberIdRecebedor, from);
+    if (!agencia) {
+      console.error(
+        `[webhook] Nenhuma agência encontrada para phone_number_id=${phoneNumberIdRecebedor}`,
+      );
+      return;
+    }
+    const agenciaId = agencia.id;
+
+    // Conta suspensa: ignorar
+    if (agencia.status_conta === 'suspenso') {
+      console.warn(`[webhook] Agência ${agenciaId} suspensa — mensagem ignorada`);
       return;
     }
 
-    console.log(`[webhook] Mensagem de ${from}: ${text}`);
-
-    const history = getHistory(from);
-    const reply = await generateReply(aiConfig, history, text);
-
-    appendMessage(from, 'user', text);
-    appendMessage(from, 'assistant', reply);
-
-    if (reply.startsWith('PEDIDO_CONFIRMADO:')) {
-      console.log(`[pedido] ${from} → ${reply}`);
+    // Trial expirado: avisar cliente e parar
+    const trial = avaliarTrial(agencia);
+    if (trial.ativo && trial.expirado) {
+      console.warn(`[webhook] Trial expirado para agência ${agenciaId}`);
+      try {
+        await whatsappService.sendMessage(
+          agenciaId,
+          from,
+          '⏰ Seu período de teste encerrou!\n' +
+            'Acesse https://sutogas.com.br para assinar e continuar atendendo seus clientes.',
+        );
+      } catch (e: any) {
+        console.error('[webhook] falha ao avisar trial expirado:', e?.message ?? e);
+      }
+      return;
     }
 
-    await sendWhatsAppText(from, reply);
+    // É um entregador?
+    const entregador = await buscarEntregadorPorWhatsapp(from);
+    if (entregador) {
+      console.log(`[webhook] Mensagem do entregador ${entregador.nome}: ${text}`);
+
+      const comando = text.trim().toUpperCase();
+
+      if (comando === 'PEDIDOS') {
+        const pendentes = await buscarPedidosPendentes(entregador.agencia_id);
+        const resposta = pendentes.length
+          ? `📋 *Pedidos pendentes (${pendentes.length}):*\n\n` +
+            pendentes
+              .map(
+                (p, i) =>
+                  `${i + 1}. ID: ${p.id}\n` +
+                  `   📦 ${p.produto} x${p.quantidade}\n` +
+                  `   📍 ${p.endereco}\n` +
+                  `   👉 Para aceitar: ACEITO ${p.id}`,
+              )
+              .join('\n\n')
+          : '✅ Nenhum pedido pendente no momento.';
+        await whatsappService.sendMessage(entregador.agencia_id, from, resposta);
+        return;
+      }
+
+      if (comando.startsWith('ACEITO ')) {
+        const pedidoId = text.trim().slice('ACEITO '.length).trim();
+        try {
+          await atualizarStatus(pedidoId, 'aceito', entregador.id);
+          await whatsappService.sendMessage(
+            entregador.agencia_id,
+            from,
+            '✅ Pedido aceito! Boa entrega! 🛵',
+          );
+        } catch (err: any) {
+          console.error('[entregador] erro ao aceitar pedido:', err?.message ?? err);
+          await whatsappService.sendMessage(
+            entregador.agencia_id,
+            from,
+            '⚠️ Não consegui aceitar esse pedido. Verifique o ID.',
+          );
+        }
+        return;
+      }
+
+      if (comando.startsWith('ENTREGUE ')) {
+        const pedidoId = text.trim().slice('ENTREGUE '.length).trim();
+        try {
+          await atualizarStatus(pedidoId, 'entregue', entregador.id);
+          await whatsappService.sendMessage(
+            entregador.agencia_id,
+            from,
+            `✅ Entrega confirmada! Obrigado, ${entregador.nome}! 🙌`,
+          );
+        } catch (err: any) {
+          console.error('[entregador] erro ao confirmar entrega:', err?.message ?? err);
+          await whatsappService.sendMessage(
+            entregador.agencia_id,
+            from,
+            '⚠️ Não consegui confirmar essa entrega. Verifique o ID.',
+          );
+        }
+        return;
+      }
+
+      const ajuda =
+        `Olá ${entregador.nome}! 👋\n` +
+        `Para ver pedidos pendentes: responda *pedidos*\n` +
+        `Para aceitar um pedido: responda *aceito {número do pedido}*\n` +
+        `Para confirmar entrega: responda *entregue {número do pedido}*`;
+      await whatsappService.sendMessage(entregador.agencia_id, from, ajuda);
+      return;
+    }
+
+    console.log(`[webhook] Mensagem de ${from} → agência ${agenciaId}: ${text}`);
+
+    // Contar atendimento de cliente em trial (1 mensagem inbound = 1 atendimento)
+    if (trial.ativo) {
+      await incrementarAtendimentoTrial(agenciaId, trial.atendimentos);
+    }
+
+    // Horário de atendimento — injeta marca no texto se fora do horário
+    const dentroHorario = estaNoHorario(agencia as any);
+    const marcas: string[] = [];
+    if (!dentroHorario) {
+      const janela = janelaHorarioStr(agencia as any);
+      marcas.push(
+        `[SISTEMA: fora do horário (${janela}). Pergunte se o cliente quer agendar para a abertura.]`,
+      );
+    }
+
+    // Contexto do cliente (histórico de pedidos)
+    const cliente = await buscarCliente(agenciaId, from);
+    const contextoCliente = montarContextoCliente(cliente);
+    if (contextoCliente) marcas.push(contextoCliente);
+
+    const textoParaIA = marcas.length ? `${marcas.join('\n')}\n\n${text}` : text;
+
+    const historico = await buscarHistorico(agenciaId, from);
+    const reply = await generateReply(
+      aiConfig,
+      historico,
+      textoParaIA,
+      agencia.prompt_customizado,
+    );
+
+    const novoHistorico: Message[] = [
+      ...historico,
+      { role: 'user', content: text },
+      { role: 'assistant', content: reply },
+    ];
+    await salvarHistorico(agenciaId, from, novoHistorico);
+
+    // Detectar PEDIDO_CONFIRMADO — aceita 3 ou 4 campos (compat com prompt antigo)
+    let mensagemCliente = reply;
+    const pedidoMatch =
+      reply.match(/PEDIDO_CONFIRMADO:([^|]+)\|([^|]+)\|([^|\n]+)\|([^\n]+)/) ||
+      reply.match(/PEDIDO_CONFIRMADO:([^|]+)\|([^|]+)\|([^\n]+)/);
+    let pedidoCriadoId: string | null = null;
+
+    if (pedidoMatch) {
+      const produto = pedidoMatch[1].trim();
+      const quantidadeStr = pedidoMatch[2].trim();
+      const endereco = pedidoMatch[3].trim();
+      const formaPagamento = pedidoMatch[4]?.trim() ?? null;
+      const quantidade = parseInt(quantidadeStr, 10) || 1;
+
+      const abertura = dentroHorario ? null : proximaAbertura(agencia as any);
+      const pedido = await salvarPedido(agenciaId, from, produto, quantidade, endereco, {
+        status: dentroHorario ? 'pendente' : 'agendado',
+        agendadoPara: abertura ?? undefined,
+        formaPagamento,
+      });
+      pedidoCriadoId = pedido.id;
+      console.log(
+        `[pedido] salvo: ${pedido.id} (status=${dentroHorario ? 'pendente' : 'agendado'})`,
+      );
+
+      // Atualiza/cria registro do cliente com produto e endereço preferidos
+      try {
+        await upsertCliente(agenciaId, from, produto, endereco);
+      } catch (e: any) {
+        console.error('[cliente] upsert falhou:', e?.message ?? e);
+      }
+
+      if (dentroHorario) {
+        await distribuirPedido(pedido, agencia as any);
+      } else {
+        console.log(`[pedido] aguardando abertura em ${abertura?.toISOString()}`);
+      }
+
+      mensagemCliente = reply.replace(/PEDIDO_CONFIRMADO:[^\n]+/g, '').trim();
+      if (!mensagemCliente) {
+        mensagemCliente = dentroHorario
+          ? '✅ Pedido confirmado! Já avisei o entregador. 🛵'
+          : '✅ Pedido agendado! Vou disparar para o entregador assim que abrirmos.';
+      }
+    }
+
+    // Detectar LEMBRETE_CONFIRMADO:{dias}  (formato flexível)
+    const lembreteMatch = reply.match(/LEMBRETE_CONFIRMADO:?\s*(\d+)?/);
+    if (lembreteMatch) {
+      const dias = parseInt(lembreteMatch[1] ?? '30', 10) || 30;
+      try {
+        const enviarEm = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+        await getSupabase().from('lembretes').insert({
+          agencia_id: agenciaId,
+          cliente_whatsapp: from,
+          pedido_id: pedidoCriadoId,
+          enviar_em: enviarEm.toISOString(),
+          dias_escolhidos: dias,
+        });
+        console.log(`[lembrete] agendado para ${dias} dias (${enviarEm.toISOString()})`);
+
+        // Atualiza preferência de recarga do cliente
+        await upsertCliente(agenciaId, from, null, null, dias);
+      } catch (err: any) {
+        console.error('[lembrete] falha ao inserir:', err?.message ?? err);
+      }
+      mensagemCliente = mensagemCliente.replace(/^LEMBRETE_CONFIRMADO[^\n]*\n?/m, '').trim();
+    }
+
+    if (mensagemCliente) {
+      await whatsappService.sendMessage(agenciaId, from, mensagemCliente);
+    }
     console.log(`[webhook] Resposta enviada para ${from}`);
   } catch (err: any) {
-    console.error('[webhook] Erro processando mensagem:', err?.response?.data ?? err?.message ?? err);
+    console.error('[webhook] Erro:', err?.response?.data ?? err?.message ?? err);
   }
 });
 
-// 404
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Not Found' });
+// QR Code da agência (Z-API)
+app.get('/api/agencias/:id/qrcode', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: agencia, error } = await getSupabase()
+      .from('agencias')
+      .select('zapi_instance_id, zapi_token')
+      .eq('id', id)
+      .single();
+
+    if (error || !agencia) return res.status(404).json({ error: 'Agência não encontrada' });
+    if (!agencia.zapi_instance_id || !agencia.zapi_token) {
+      return res.status(400).json({ error: 'Agência sem credenciais Z-API' });
+    }
+
+    const [qrcode, status] = await Promise.all([
+      getQRCode(agencia.zapi_instance_id, agencia.zapi_token),
+      getStatus(agencia.zapi_instance_id, agencia.zapi_token),
+    ]);
+
+    res.json({ qrcode, status });
+  } catch (err: any) {
+    console.error('[qrcode]', err?.message ?? err);
+    res.status(500).json({ error: 'Falha ao obter QR code' });
+  }
 });
 
-// Error handler
+// Enviar relatório (teste manual)
+app.post('/api/agencias/:id/relatorio/teste', async (req, res) => {
+  try {
+    await enviarRelatorio(req.params.id);
+    res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[relatorio/teste]', err?.message ?? err);
+    res.status(500).json({ error: err?.message ?? 'Erro interno' });
+  }
+});
+
+// Configurar Z-API da agência
+app.post('/api/agencias/:id/zapi', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { instanceId, token } = req.body ?? {};
+    if (!instanceId || !token) {
+      return res.status(400).json({ error: 'instanceId e token são obrigatórios' });
+    }
+
+    const { error } = await getSupabase()
+      .from('agencias')
+      .update({
+        zapi_instance_id: instanceId,
+        zapi_token: token,
+        zapi_status: 'aguardando_qr',
+      })
+      .eq('id', id);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    whatsappService.invalidateAgenciaCache(id);
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Erro interno' });
+  }
+});
+
+app.use((_req, res) => res.status(404).json({ error: 'Not Found' }));
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('[error]', err);
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
 app.listen(PORT, () => {
-  console.log(`GasBot backend running on http://localhost:${PORT}`);
+  console.log(`SutoGas backend running on http://localhost:${PORT}`);
 });

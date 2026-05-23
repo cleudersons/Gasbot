@@ -1,6 +1,6 @@
-# GasBot SaaS
+# SutoGas
 
-Plataforma SaaS de automação via WhatsApp (Meta Cloud API) para distribuidoras de gás, com IA (OpenAI) e backend Supabase.
+Plataforma SaaS de automação via WhatsApp (Meta Cloud API) para distribuidoras de gás e água mineral, com IA (OpenAI) e backend Supabase.
 
 ## Stack
 
