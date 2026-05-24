@@ -349,6 +349,21 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
+    // Detectar NOME_CLIENTE:{primeiro_nome}
+    const nomeMatch = reply.match(/NOME_CLIENTE:\s*([^\n]+)/i);
+    if (nomeMatch) {
+      const primeiroNome = nomeMatch[1].trim().split(/\s+/)[0];
+      if (primeiroNome) {
+        try {
+          await upsertCliente(agenciaId, from, null, null, undefined, primeiroNome);
+          console.log(`[cliente] nome salvo: ${primeiroNome}`);
+        } catch (err: any) {
+          console.error('[cliente] erro ao salvar nome:', err?.message ?? err);
+        }
+      }
+      mensagemCliente = mensagemCliente.replace(/^NOME_CLIENTE:[^\n]*\n?/im, '').trim();
+    }
+
     // Detectar LEMBRETE_CONFIRMADO:{dias}  (formato flexível)
     const lembreteMatch = reply.match(/LEMBRETE_CONFIRMADO:?\s*(\d+)?/);
     if (lembreteMatch) {

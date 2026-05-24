@@ -56,6 +56,7 @@ export async function upsertCliente(
   produto: string | null,
   endereco: string | null,
   diasRecarga?: number,
+  nome?: string | null,
 ): Promise<void> {
   const db = getSupabase();
   const existente = await buscarCliente(agenciaId, whatsapp);
@@ -70,6 +71,7 @@ export async function upsertCliente(
       endereco_preferido: endereco,
     };
     if (diasRecarga) insert.dias_recarga = diasRecarga;
+    if (nome) insert.nome = nome;
     const { error } = await db.from('clientes').insert(insert);
     if (error) console.error('[cliente] erro insert:', error.message);
     return;
@@ -83,6 +85,7 @@ export async function upsertCliente(
   }
   if (endereco) update.endereco_preferido = endereco;
   if (diasRecarga) update.dias_recarga = diasRecarga;
+  if (nome && !existente.nome) update.nome = nome; // só grava se ainda não tem
 
   // Recalcula média se já tem histórico suficiente
   const totalDepois = (existente.total_pedidos ?? 0) + (produto ? 1 : 0);
@@ -107,6 +110,7 @@ export function montarContextoCliente(c: Cliente | null): string | null {
     `dias_recarga=${c.dias_recarga ?? 30}`,
     `total_pedidos=${c.total_pedidos ?? 0}`,
   ];
+  if (c.nome) partes.push(`nome=${c.nome}`);
   if (c.produto_preferido) partes.push(`produto_preferido=${c.produto_preferido}`);
   if (c.endereco_preferido) partes.push(`endereco_preferido=${c.endereco_preferido}`);
   return `[CLIENTE: ${partes.join(', ')}]`;
