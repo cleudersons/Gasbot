@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase';
+import { variantesWhatsappBR } from '../utils/whatsapp-format';
 
 export interface Entregador {
   id: string;
@@ -20,16 +21,18 @@ export async function buscarEntregadoresAtivos(agenciaId: string): Promise<Entre
 }
 
 export async function buscarEntregadorPorWhatsapp(whatsapp: string): Promise<Entregador | null> {
+  const variantes = variantesWhatsappBR(whatsapp);
+
   const { data, error } = await getSupabase()
     .from('entregadores')
     .select('*')
-    .eq('whatsapp', whatsapp)
+    .in('whatsapp', variantes)
     .eq('ativo', true)
-    .maybeSingle();
+    .limit(1);
 
   if (error) {
     console.warn(`[entregadores] erro ao buscar por whatsapp: ${error.message}`);
     return null;
   }
-  return (data as Entregador | null) ?? null;
+  return (data && data.length > 0 ? (data[0] as Entregador) : null);
 }

@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase';
+import { variantesWhatsappBR } from '../utils/whatsapp-format';
 
 export interface Cliente {
   id: string;
@@ -16,13 +17,14 @@ export async function buscarCliente(
   agenciaId: string,
   whatsapp: string,
 ): Promise<Cliente | null> {
+  const variantes = variantesWhatsappBR(whatsapp);
   const { data } = await getSupabase()
     .from('clientes')
     .select('*')
     .eq('agencia_id', agenciaId)
-    .eq('whatsapp', whatsapp)
-    .maybeSingle();
-  return (data as Cliente | null) ?? null;
+    .in('whatsapp', variantes)
+    .limit(1);
+  return data && data.length > 0 ? (data[0] as Cliente) : null;
 }
 
 async function mediaIntervalosUltimosPedidos(
