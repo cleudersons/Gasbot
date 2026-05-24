@@ -1,6 +1,7 @@
 import { auth, signOut } from '@/lib/auth';
 import Link from 'next/link';
-import { Building2, BarChart3, Settings, LogOut, Crown } from 'lucide-react';
+import { Building2, BarChart3, Settings, LogOut } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -9,14 +10,9 @@ export default async function MasterLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen flex bg-gray-50">
       <aside className="w-64 bg-gray-900 text-gray-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-gray-800 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-yellow-500 flex items-center justify-center">
-            <Crown className="text-gray-900" size={20} />
-          </div>
-          <div className="leading-tight">
-            <div className="text-lg font-bold text-white">SutoGas Master</div>
-            <span className="text-[10px] bg-yellow-500 text-gray-900 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>
-          </div>
+        <div className="px-6 py-5 border-b border-gray-800 flex items-center justify-between gap-3">
+          <Logo variant="row" size={36} dark />
+          <span className="text-[10px] bg-yellow-500 text-gray-900 px-1.5 py-0.5 rounded font-semibold">ADMIN</span>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

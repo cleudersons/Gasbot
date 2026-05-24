@@ -6,12 +6,12 @@ import {
   Users,
   Settings,
   LogOut,
-  Flame,
   Plug,
   UserCircle,
   Rocket,
 } from 'lucide-react';
 import TrialBanner from '@/components/TrialBanner';
+import Logo from '@/components/Logo';
 
 export default async function DashboardLayout({
   children,
@@ -76,11 +76,8 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen flex bg-gray-50">
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-orange-500 flex items-center justify-center">
-            <Flame className="text-white" size={20} />
-          </div>
-          <span className="text-xl font-bold">SutoGas</span>
+        <div className="px-6 py-5 border-b border-gray-200">
+          <Logo variant="row" size={36} />
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">

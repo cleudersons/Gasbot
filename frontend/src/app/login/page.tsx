@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { Flame } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,11 +47,8 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 to-orange-50">
       <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center mb-3">
-            <Flame className="text-white" size={28} />
-          </div>
-          <h1 className="text-3xl font-bold">SutoGas</h1>
-          <p className="text-gray-500 text-sm">Painel administrativo</p>
+          <Logo variant="full" size={64} className="flex-col text-center" />
+          <p className="text-gray-500 text-sm mt-3">Painel administrativo</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

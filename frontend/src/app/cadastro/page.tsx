@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { Flame } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -60,10 +60,8 @@ export default function CadastroPage() {
     <main className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 to-orange-50">
       <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center mb-3">
-            <Flame className="text-white" size={28} />
-          </div>
-          <h1 className="text-3xl font-bold">Crie sua conta</h1>
+          <Logo variant="full" size={64} className="flex-col text-center" />
+          <h2 className="text-2xl font-bold mt-3">Crie sua conta</h2>
           <p className="text-gray-500 text-sm">7 dias grátis · sem cartão</p>
         </div>
 
