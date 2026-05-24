@@ -1,6 +1,7 @@
 // Edge-safe: sem bcrypt, sem supabase. Apenas options/callbacks puros.
 export const authConfig = {
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true, // necessário em produção atrás do proxy do Railway
   session: { strategy: 'jwt' as const },
   pages: { signIn: '/login' },
   providers: [], // providers reais ficam em auth.ts
