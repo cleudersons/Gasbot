@@ -12,6 +12,7 @@ interface AgenciaInfo {
 
 function montarAviso(p: Pedido): string {
   const pagamento = p.forma_pagamento ? `\n💳 Pagamento: ${p.forma_pagamento}` : '';
+  const idCurto = p.id.slice(0, 8);
   return (
     `🛵 *Novo Pedido!*\n` +
     `📦 Produto: ${p.produto} x${p.quantidade}\n` +
@@ -19,8 +20,10 @@ function montarAviso(p: Pedido): string {
     `📍 Endereço: ${p.endereco}` +
     pagamento +
     `\n🗺 Maps: ${p.maps_link}\n` +
-    `🆔 ID: ${p.id}\n` +
-    `🕐 ${new Date().toLocaleString('pt-BR')}`
+    `🆔 ID: ${idCurto}\n` +
+    `🕐 ${new Date().toLocaleString('pt-BR')}\n\n` +
+    `Para aceitar: *aceito ${idCurto}*\n` +
+    `Para confirmar entrega: *entregue ${idCurto}*`
   );
 }
 

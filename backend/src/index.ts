@@ -10,7 +10,12 @@ import morgan from 'morgan';
 import { getSupabase } from './lib/supabase';
 import { buscarHistorico, salvarHistorico, Message } from './services/conversas.service';
 import { generateReply } from './services/ai.service';
-import { salvarPedido, buscarPedidosPendentes, atualizarStatus } from './services/pedidos.service';
+import {
+  salvarPedido,
+  buscarPedidosPendentes,
+  buscarPedidoPorPrefixo,
+  atualizarStatus,
+} from './services/pedidos.service';
 import {
   buscarEntregadorPorWhatsapp,
 } from './services/entregadores.service';
@@ -130,56 +135,71 @@ app.post('/webhook', async (req, res) => {
         const resposta = pendentes.length
           ? `📋 *Pedidos pendentes (${pendentes.length}):*\n\n` +
             pendentes
-              .map(
-                (p, i) =>
-                  `${i + 1}. ID: ${p.id}\n` +
+              .map((p, i) => {
+                const idCurto = p.id.slice(0, 8);
+                return (
+                  `${i + 1}. ID: ${idCurto}\n` +
                   `   📦 ${p.produto} x${p.quantidade}\n` +
                   `   📍 ${p.endereco}\n` +
-                  `   👉 Para aceitar: ACEITO ${p.id}`,
-              )
+                  `   👉 Para aceitar: *aceito ${idCurto}*`
+                );
+              })
               .join('\n\n')
           : '✅ Nenhum pedido pendente no momento.';
         await whatsappService.sendMessage(entregador.agencia_id, from, resposta);
         return;
       }
 
-      if (comando.startsWith('ACEITO ')) {
-        const pedidoId = text.trim().slice('ACEITO '.length).trim();
-        try {
-          await atualizarStatus(pedidoId, 'aceito', entregador.id);
+      async function processarComandoPedido(
+        cmd: 'aceito' | 'entregue',
+        prefixo: string,
+      ) {
+        const novoStatus = cmd === 'aceito' ? 'aceito' : 'entregue';
+        const { pedido, ambiguo } = await buscarPedidoPorPrefixo(entregador!.agencia_id, prefixo);
+
+        if (ambiguo) {
           await whatsappService.sendMessage(
-            entregador.agencia_id,
+            entregador!.agencia_id,
             from,
-            '✅ Pedido aceito! Boa entrega! 🛵',
+            '⚠️ Mais de um pedido bate com esse ID. Use mais caracteres (mínimo 8).',
           );
-        } catch (err: any) {
-          console.error('[entregador] erro ao aceitar pedido:', err?.message ?? err);
+          return;
+        }
+        if (!pedido) {
           await whatsappService.sendMessage(
-            entregador.agencia_id,
+            entregador!.agencia_id,
             from,
-            '⚠️ Não consegui aceitar esse pedido. Verifique o ID.',
+            '⚠️ Não encontrei esse pedido. Verifique o ID.',
+          );
+          return;
+        }
+
+        try {
+          await atualizarStatus(pedido.id, novoStatus, entregador!.id);
+          const msg =
+            cmd === 'aceito'
+              ? '✅ Pedido aceito! Boa entrega! 🛵'
+              : `✅ Entrega confirmada! Obrigado, ${entregador!.nome}! 🙌`;
+          await whatsappService.sendMessage(entregador!.agencia_id, from, msg);
+        } catch (err: any) {
+          console.error(`[entregador] erro ao ${cmd}:`, err?.message ?? err);
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            `⚠️ Não consegui ${cmd === 'aceito' ? 'aceitar' : 'confirmar'} esse pedido.`,
           );
         }
+      }
+
+      if (comando.startsWith('ACEITO ')) {
+        const prefixo = text.trim().slice('ACEITO '.length).trim();
+        await processarComandoPedido('aceito', prefixo);
         return;
       }
 
       if (comando.startsWith('ENTREGUE ')) {
-        const pedidoId = text.trim().slice('ENTREGUE '.length).trim();
-        try {
-          await atualizarStatus(pedidoId, 'entregue', entregador.id);
-          await whatsappService.sendMessage(
-            entregador.agencia_id,
-            from,
-            `✅ Entrega confirmada! Obrigado, ${entregador.nome}! 🙌`,
-          );
-        } catch (err: any) {
-          console.error('[entregador] erro ao confirmar entrega:', err?.message ?? err);
-          await whatsappService.sendMessage(
-            entregador.agencia_id,
-            from,
-            '⚠️ Não consegui confirmar essa entrega. Verifique o ID.',
-          );
-        }
+        const prefixo = text.trim().slice('ENTREGUE '.length).trim();
+        await processarComandoPedido('entregue', prefixo);
         return;
       }
 

@@ -54,6 +54,30 @@ export async function salvarPedido(
   return data as Pedido;
 }
 
+/**
+ * Procura um pedido pelo prefixo curto do UUID (mínimo 6 chars).
+ * Aceita também o UUID completo. Retorna null se não achar ou se
+ * houver mais de um match (ambíguo).
+ */
+export async function buscarPedidoPorPrefixo(
+  agenciaId: string,
+  prefixo: string,
+): Promise<{ pedido: Pedido | null; ambiguo: boolean }> {
+  const p = prefixo.trim().toLowerCase();
+  if (p.length < 6) return { pedido: null, ambiguo: false };
+
+  const { data, error } = await getSupabase()
+    .from('pedidos')
+    .select('*')
+    .eq('agencia_id', agenciaId)
+    .like('id::text', `${p}%`)
+    .limit(2);
+
+  if (error || !data || data.length === 0) return { pedido: null, ambiguo: false };
+  if (data.length > 1) return { pedido: null, ambiguo: true };
+  return { pedido: data[0] as Pedido, ambiguo: false };
+}
+
 export async function buscarPedidosPendentes(agenciaId: string): Promise<Pedido[]> {
   const { data, error } = await getSupabase()
     .from('pedidos')
