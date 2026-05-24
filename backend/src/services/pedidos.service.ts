@@ -78,6 +78,22 @@ export async function buscarPedidoPorPrefixo(
   return { pedido: data[0] as Pedido, ambiguo: false };
 }
 
+export async function buscarPedidosAtivosDoEntregador(
+  agenciaId: string,
+  entregadorId: string,
+): Promise<Pedido[]> {
+  const { data, error } = await getSupabase()
+    .from('pedidos')
+    .select('*')
+    .eq('agencia_id', agenciaId)
+    .eq('entregador_id', entregadorId)
+    .in('status', ['aceito', 'em_entrega'])
+    .order('criado_em', { ascending: true });
+
+  if (error) throw new Error(`Erro ao buscar pedidos do entregador: ${error.message}`);
+  return (data ?? []) as Pedido[];
+}
+
 export async function buscarPedidosPendentes(agenciaId: string): Promise<Pedido[]> {
   const { data, error } = await getSupabase()
     .from('pedidos')

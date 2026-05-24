@@ -14,7 +14,9 @@ import {
   salvarPedido,
   buscarPedidosPendentes,
   buscarPedidoPorPrefixo,
+  buscarPedidosAtivosDoEntregador,
   atualizarStatus,
+  Pedido,
 } from './services/pedidos.service';
 import {
   buscarEntregadorPorWhatsapp,
@@ -150,13 +152,37 @@ app.post('/webhook', async (req, res) => {
         return;
       }
 
-      async function processarComandoPedido(
-        cmd: 'aceito' | 'entregue',
-        prefixo: string,
-      ) {
-        const novoStatus = cmd === 'aceito' ? 'aceito' : 'entregue';
-        const { pedido, ambiguo } = await buscarPedidoPorPrefixo(entregador!.agencia_id, prefixo);
+      async function aplicarStatus(pedido: Pedido, cmd: 'aceito' | 'entregue') {
+        try {
+          await atualizarStatus(pedido.id, cmd, entregador!.id);
+          const msg =
+            cmd === 'aceito'
+              ? `✅ Pedido aceito (${pedido.id.slice(0, 8)})! Boa entrega! 🛵`
+              : `✅ Entrega confirmada (${pedido.id.slice(0, 8)})! Obrigado, ${entregador!.nome}! 🙌`;
+          await whatsappService.sendMessage(entregador!.agencia_id, from, msg);
+        } catch (err: any) {
+          console.error(`[entregador] erro ao ${cmd}:`, err?.message ?? err);
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            `⚠️ Não consegui ${cmd === 'aceito' ? 'aceitar' : 'confirmar'} esse pedido.`,
+          );
+        }
+      }
 
+      async function pedirEscolha(candidatos: Pedido[], cmd: 'aceito' | 'entregue') {
+        const lista = candidatos
+          .map((p, i) => `${i + 1}. ${p.id.slice(0, 8)} — ${p.produto} x${p.quantidade}, ${p.endereco}`)
+          .join('\n');
+        await whatsappService.sendMessage(
+          entregador!.agencia_id,
+          from,
+          `Você tem ${candidatos.length} pedidos. Use *${cmd} {id curto}* para escolher:\n\n${lista}`,
+        );
+      }
+
+      async function processarPorPrefixo(cmd: 'aceito' | 'entregue', prefixo: string) {
+        const { pedido, ambiguo } = await buscarPedidoPorPrefixo(entregador!.agencia_id, prefixo);
         if (ambiguo) {
           await whatsappService.sendMessage(
             entregador!.agencia_id,
@@ -173,41 +199,61 @@ app.post('/webhook', async (req, res) => {
           );
           return;
         }
-
-        try {
-          await atualizarStatus(pedido.id, novoStatus, entregador!.id);
-          const msg =
-            cmd === 'aceito'
-              ? '✅ Pedido aceito! Boa entrega! 🛵'
-              : `✅ Entrega confirmada! Obrigado, ${entregador!.nome}! 🙌`;
-          await whatsappService.sendMessage(entregador!.agencia_id, from, msg);
-        } catch (err: any) {
-          console.error(`[entregador] erro ao ${cmd}:`, err?.message ?? err);
-          await whatsappService.sendMessage(
-            entregador!.agencia_id,
-            from,
-            `⚠️ Não consegui ${cmd === 'aceito' ? 'aceitar' : 'confirmar'} esse pedido.`,
-          );
-        }
+        await aplicarStatus(pedido, cmd);
       }
 
-      if (comando.startsWith('ACEITO ')) {
-        const prefixo = text.trim().slice('ACEITO '.length).trim();
-        await processarComandoPedido('aceito', prefixo);
+      // ACEITO {id?} — sem ID, pega o único pendente
+      if (comando === 'ACEITO' || comando.startsWith('ACEITO ')) {
+        const prefixo = comando === 'ACEITO' ? '' : text.trim().slice('ACEITO '.length).trim();
+        if (prefixo) {
+          await processarPorPrefixo('aceito', prefixo);
+        } else {
+          const pendentes = await buscarPedidosPendentes(entregador.agencia_id);
+          if (pendentes.length === 0) {
+            await whatsappService.sendMessage(
+              entregador.agencia_id,
+              from,
+              '✅ Nenhum pedido pendente no momento.',
+            );
+          } else if (pendentes.length === 1) {
+            await aplicarStatus(pendentes[0], 'aceito');
+          } else {
+            await pedirEscolha(pendentes, 'aceito');
+          }
+        }
         return;
       }
 
-      if (comando.startsWith('ENTREGUE ')) {
-        const prefixo = text.trim().slice('ENTREGUE '.length).trim();
-        await processarComandoPedido('entregue', prefixo);
+      // ENTREGUE {id?} — sem ID, pega o único aceito/em_entrega do entregador
+      if (comando === 'ENTREGUE' || comando.startsWith('ENTREGUE ')) {
+        const prefixo = comando === 'ENTREGUE' ? '' : text.trim().slice('ENTREGUE '.length).trim();
+        if (prefixo) {
+          await processarPorPrefixo('entregue', prefixo);
+        } else {
+          const ativos = await buscarPedidosAtivosDoEntregador(
+            entregador.agencia_id,
+            entregador.id,
+          );
+          if (ativos.length === 0) {
+            await whatsappService.sendMessage(
+              entregador.agencia_id,
+              from,
+              '⚠️ Você não tem nenhum pedido em andamento agora.',
+            );
+          } else if (ativos.length === 1) {
+            await aplicarStatus(ativos[0], 'entregue');
+          } else {
+            await pedirEscolha(ativos, 'entregue');
+          }
+        }
         return;
       }
 
       const ajuda =
         `Olá ${entregador.nome}! 👋\n` +
         `Para ver pedidos pendentes: responda *pedidos*\n` +
-        `Para aceitar um pedido: responda *aceito {número do pedido}*\n` +
-        `Para confirmar entrega: responda *entregue {número do pedido}*`;
+        `Para aceitar: *aceito* (ou *aceito {id curto}* se tiver mais de um)\n` +
+        `Para confirmar entrega: *entregue* (ou *entregue {id curto}* se tiver mais de um)`;
       await whatsappService.sendMessage(entregador.agencia_id, from, ajuda);
       return;
     }
