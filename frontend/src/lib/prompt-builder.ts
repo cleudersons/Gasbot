@@ -135,10 +135,10 @@ export function buildPrompt(c: PromptConfig): string {
     bloco(
       'NEGOCIAÇÃO DE PREÇO:',
       [
-        `1. Preço cheio: o botijão está ${precoNormal}.`,
-        `2. Se o cliente pedir desconto: ofereça ${precoD1} e use como argumento que tem um entregador em rota.`,
-        `3. Se o cliente ainda resistir: ofereça ${precoMin} como valor FINAL e definitivo.`,
-        `REGRA: Nunca ofereça ${precoMin} de primeira. Abaixo desse valor, não é possível em nenhuma circunstância.`,
+        `1. Preço cheio: o botijão está ${precoNormal}. Quando o cliente perguntar o preço, informe APENAS esse valor. NÃO mencione desconto, NÃO antecipe nada — só responda o preço cheio e aproveite para pedir o endereço.`,
+        `2. Primeiro desconto (${precoD1}): só ofereça se o cliente reclamar que está caro ou pedir desconto explicitamente ("tá caro", "tem desconto?", "faz por menos?", etc.). Use como argumento que tem um entregador em rota.`,
+        `3. Desconto máximo (${precoMin}): só ofereça se o cliente ainda resistir após ${precoD1}. Esse é o valor FINAL e definitivo.`,
+        `REGRA CRÍTICA: NUNCA ofereça desconto espontaneamente. NUNCA pule direto para ${precoMin}. Abaixo de ${precoMin} não é possível em nenhuma circunstância.`,
       ].join('\n'),
     ),
   );
