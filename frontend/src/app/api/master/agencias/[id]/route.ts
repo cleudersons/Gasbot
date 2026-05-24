@@ -14,6 +14,7 @@ const ALLOWED_FIELDS = new Set([
   'nome',
   'prompt_customizado',
   'relatorio_frequencia',
+  'agente_ativo',
 ]);
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {

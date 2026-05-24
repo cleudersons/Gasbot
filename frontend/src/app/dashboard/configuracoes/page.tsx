@@ -20,6 +20,7 @@ interface Agencia {
   atendimento_ativo?: boolean | null;
   timezone?: string | null;
   distribuicao_modo?: string | null;
+  agente_ativo?: boolean | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -39,6 +40,9 @@ export default function ConfiguracoesPage() {
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
 
   const [distribuicaoModo, setDistribuicaoModo] = useState('todos');
+
+  const [agenteAtivo, setAgenteAtivo] = useState(true);
+  const [savingAgente, setSavingAgente] = useState(false);
 
   type Tab = 'agente' | 'relatorios' | 'horario' | 'entregadores';
   const [tab, setTab] = useState<Tab>('agente');
@@ -70,6 +74,7 @@ export default function ConfiguracoesPage() {
         setHorarioFim((a.horario_fim ?? '22:00:00').slice(0, 5));
         setTimezone(a.timezone ?? 'America/Sao_Paulo');
         setDistribuicaoModo(a.distribuicao_modo ?? 'todos');
+        setAgenteAtivo(a.agente_ativo ?? true);
       }
 
       if (pRes.ok && pJson.config && Object.keys(pJson.config).length > 0) {
@@ -86,6 +91,23 @@ export default function ConfiguracoesPage() {
 
   function setField<K extends keyof PromptConfig>(key: K, value: PromptConfig[K]) {
     setPromptConfig((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function togglePausa(novoValor: boolean) {
+    setSavingAgente(true);
+    setMsg(null);
+    const res = await fetch('/api/configuracoes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agente_ativo: novoValor }),
+    });
+    setSavingAgente(false);
+    if (res.ok) {
+      setAgenteAtivo(novoValor);
+      setMsg(novoValor ? '✅ Agente ativado' : '⏸ Agente pausado — não vai responder mensagens');
+    } else {
+      setMsg('Erro ao atualizar estado do agente');
+    }
   }
 
   async function salvarPrompt() {
@@ -212,6 +234,36 @@ export default function ConfiguracoesPage() {
         className="bg-white rounded-xl border border-gray-200 p-5 space-y-5"
         hidden={tab !== 'agente'}
       >
+        <div
+          className={`rounded-xl border p-4 flex items-center justify-between ${
+            agenteAtivo
+              ? 'bg-green-50 border-green-200'
+              : 'bg-red-50 border-red-200'
+          }`}
+        >
+          <div>
+            <div className="font-semibold">
+              {agenteAtivo ? '🟢 Agente ativo' : '⏸ Agente pausado'}
+            </div>
+            <p className="text-xs text-gray-600">
+              {agenteAtivo
+                ? 'O bot está respondendo automaticamente as mensagens dos seus clientes.'
+                : 'O bot NÃO responde mensagens enquanto estiver pausado. Pedidos não serão criados.'}
+            </p>
+          </div>
+          <button
+            onClick={() => togglePausa(!agenteAtivo)}
+            disabled={savingAgente}
+            className={`px-4 py-2 text-sm font-medium rounded-lg text-white ${
+              agenteAtivo
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-green-500 hover:bg-green-600'
+            } disabled:opacity-60`}
+          >
+            {savingAgente ? '...' : agenteAtivo ? 'Pausar' : 'Ativar'}
+          </button>
+        </div>
+
         <div>
           <h2 className="font-semibold mb-1">Sua atendente virtual</h2>
           <p className="text-sm text-gray-500">

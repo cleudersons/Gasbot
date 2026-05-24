@@ -108,6 +108,12 @@ app.post('/webhook', async (req, res) => {
       return;
     }
 
+    // Agente pausado pelo dono ou pelo master: ignorar silenciosamente
+    if (agencia.agente_ativo === false) {
+      console.warn(`[webhook] Agente PAUSADO para agência ${agenciaId} — mensagem ignorada`);
+      return;
+    }
+
     // Trial expirado: avisar cliente e parar
     const trial = avaliarTrial(agencia);
     if (trial.ativo && trial.expirado) {

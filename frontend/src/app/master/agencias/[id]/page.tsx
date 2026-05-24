@@ -16,6 +16,7 @@ interface AgenciaDetalhe {
   phone_number_id?: string | null;
   whatsapp_token?: string | null;
   whatsapp_dono?: string | null;
+  agente_ativo?: boolean | null;
 }
 
 interface Pedido {
@@ -97,6 +98,36 @@ export default function MasterAgenciaDetalhePage() {
         <Card label="Pedidos no mês" value={data.metricas.mes} />
         <Card label="Entregadores ativos" value={data.metricas.entregadores_ativos} />
       </div>
+
+      <section
+        className={`rounded-xl border p-5 flex items-center justify-between ${
+          a.agente_ativo === false
+            ? 'bg-red-50 border-red-200'
+            : 'bg-green-50 border-green-200'
+        }`}
+      >
+        <div>
+          <div className="font-semibold">
+            {a.agente_ativo === false ? '⏸ Agente pausado' : '🟢 Agente ativo'}
+          </div>
+          <p className="text-xs text-gray-600">
+            {a.agente_ativo === false
+              ? 'Esta agência (incluindo demo, se aplicável) não vai responder mensagens.'
+              : 'Mensagens recebidas para essa agência são processadas pelo bot.'}
+          </p>
+        </div>
+        <button
+          onClick={() => patch({ agente_ativo: !(a.agente_ativo !== false) })}
+          disabled={saving}
+          className={`px-4 py-2 text-sm font-medium rounded-lg text-white ${
+            a.agente_ativo === false
+              ? 'bg-green-500 hover:bg-green-600'
+              : 'bg-red-500 hover:bg-red-600'
+          } disabled:opacity-60`}
+        >
+          {a.agente_ativo === false ? 'Ativar agente' : 'Pausar agente'}
+        </button>
+      </section>
 
       <section className="bg-white rounded-xl border border-gray-200 p-5">
         <h2 className="font-semibold mb-3">Plano e status</h2>
