@@ -26,7 +26,14 @@ export default function LoginPage() {
       if (result?.error) {
         setError('E-mail ou senha inválidos.');
       } else {
-        router.push('/dashboard');
+        // Descobre se é master pela sessão recém-criada
+        let destino = '/dashboard';
+        try {
+          const sessionRes = await fetch('/api/auth/session', { cache: 'no-store' });
+          const session = await sessionRes.json();
+          if (session?.user?.isMaster) destino = '/master';
+        } catch {}
+        router.push(destino);
         router.refresh();
       }
     } catch {
