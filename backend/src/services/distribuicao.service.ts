@@ -22,8 +22,8 @@ function montarAviso(p: Pedido): string {
     `\n🗺 Maps: ${p.maps_link}\n` +
     `🆔 ID: ${idCurto}\n` +
     `🕐 ${new Date().toLocaleString('pt-BR')}\n\n` +
-    `Para aceitar: *aceito ${idCurto}*\n` +
-    `Para confirmar entrega: *entregue ${idCurto}*`
+    `Responda *aceito* para pegar este pedido.\n` +
+    `(se você tiver mais de um pedido aberto: *aceito ${idCurto}*)`
   );
 }
 
