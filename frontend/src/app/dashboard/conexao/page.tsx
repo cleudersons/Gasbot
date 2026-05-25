@@ -62,7 +62,7 @@ export default function ConexaoPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <ProviderCard
             title="Número Demo"
-            badge="Recomendado para trial"
+            badge="⭐ Recomendado"
             description="Teste agora sem configurar nada. Mande uma mensagem para o nosso número demo."
             icon={<Sparkles className="text-orange-500" size={28} />}
             onClick={() => setChoice('demo')}
@@ -110,12 +110,14 @@ function ProviderCard({
       onClick={onClick}
       className={`text-left bg-white rounded-xl border ${
         highlight ? 'border-orange-300 ring-1 ring-orange-200' : 'border-gray-200'
-      } hover:border-orange-400 hover:shadow-md transition p-5 relative`}
+      } hover:border-orange-400 hover:shadow-md transition p-5 relative w-full`}
     >
       {badge && (
-        <span className="absolute top-3 right-3 text-[10px] uppercase tracking-wide font-semibold bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">
-          {badge}
-        </span>
+        <div className="mb-3">
+          <span className="inline-block text-[10px] uppercase tracking-wide font-semibold bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">
+            {badge}
+          </span>
+        </div>
       )}
       <div className="flex items-center gap-3 mb-2">
         {icon}
