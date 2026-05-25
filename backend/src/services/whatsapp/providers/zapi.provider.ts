@@ -5,18 +5,21 @@ export async function sendMessage(
   token: string,
   to: string,
   message: string,
+  clientToken?: string | null,
 ): Promise<void> {
   if (!instanceId || !token) {
     throw new Error('zapi.provider: instanceId/token ausentes');
   }
 
   const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (clientToken) headers['Client-Token'] = clientToken;
 
   try {
     const response = await axios.post(
       url,
       { phone: to, message },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 },
+      { headers, timeout: 15000 },
     );
 
     if (response.status !== 200) {

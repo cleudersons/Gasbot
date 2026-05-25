@@ -2,11 +2,21 @@ import axios from 'axios';
 
 export type ZapiStatus = 'desconectado' | 'aguardando_qr' | 'conectado';
 
-export async function getQRCode(instanceId: string, token: string): Promise<string> {
-  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/qr-code/image`;
-  const response = await axios.get(url, { timeout: 15000 });
+function zapiHeaders(clientToken?: string | null): Record<string, string> {
+  return clientToken ? { 'Client-Token': clientToken } : {};
+}
 
-  // Z-API normalmente retorna { value: "data:image/png;base64,..." } ou só a string
+export async function getQRCode(
+  instanceId: string,
+  token: string,
+  clientToken?: string | null,
+): Promise<string> {
+  const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/qr-code/image`;
+  const response = await axios.get(url, {
+    timeout: 15000,
+    headers: zapiHeaders(clientToken),
+  });
+
   const value = response.data?.value ?? response.data?.qrcode ?? response.data;
   if (typeof value !== 'string') {
     throw new Error('Resposta de QR code inesperada da Z-API');
@@ -14,9 +24,16 @@ export async function getQRCode(instanceId: string, token: string): Promise<stri
   return value;
 }
 
-export async function getStatus(instanceId: string, token: string): Promise<ZapiStatus> {
+export async function getStatus(
+  instanceId: string,
+  token: string,
+  clientToken?: string | null,
+): Promise<ZapiStatus> {
   const url = `https://api.z-api.io/instances/${instanceId}/token/${token}/status`;
-  const response = await axios.get(url, { timeout: 15000 });
+  const response = await axios.get(url, {
+    timeout: 15000,
+    headers: zapiHeaders(clientToken),
+  });
   const data = response.data ?? {};
 
   if (data.connected === true || data.status === 'connected') return 'conectado';

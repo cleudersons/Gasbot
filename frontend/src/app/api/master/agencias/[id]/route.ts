@@ -8,6 +8,7 @@ const ALLOWED_FIELDS = new Set([
   'provider',
   'zapi_instance_id',
   'zapi_token',
+  'zapi_client_token',
   'phone_number_id',
   'whatsapp_token',
   'whatsapp_dono',

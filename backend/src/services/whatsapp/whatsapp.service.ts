@@ -42,6 +42,7 @@ export async function sendMessage(agenciaId: string, to: string, message: string
       agencia.zapi_token,
       to,
       message,
+      agencia.zapi_client_token,
     );
     return;
   }

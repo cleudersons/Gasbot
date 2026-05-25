@@ -14,6 +14,7 @@ interface AgenciaDetalhe {
   provider?: string | null;
   zapi_instance_id?: string | null;
   zapi_token?: string | null;
+  zapi_client_token?: string | null;
   phone_number_id?: string | null;
   whatsapp_token?: string | null;
   whatsapp_dono?: string | null;
@@ -286,6 +287,16 @@ export default function MasterAgenciaDetalhePage() {
         <div className="grid grid-cols-2 gap-3">
           <Field label="Instance ID" defaultValue={a.zapi_instance_id ?? ''} onSave={(v) => patch({ zapi_instance_id: v })} />
           <Field label="Token" defaultValue={a.zapi_token ?? ''} onSave={(v) => patch({ zapi_token: v })} />
+        </div>
+        <div className="mt-3">
+          <Field
+            label="Client-Token (Token de segurança da conta — opcional)"
+            defaultValue={a.zapi_client_token ?? ''}
+            onSave={(v) => patch({ zapi_client_token: v || null })}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Painel Z-API → Segurança → "Token de segurança da conta" (item 3). Obrigatório se estiver ATIVO.
+          </p>
         </div>
         <button
           onClick={() => patch({ provider: 'zapi' })}

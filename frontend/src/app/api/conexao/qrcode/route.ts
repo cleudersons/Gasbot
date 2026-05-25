@@ -25,7 +25,7 @@ export async function GET() {
 
   const { data: agencia, error } = await supabaseAdmin()
     .from('agencias')
-    .select('zapi_instance_id, zapi_token')
+    .select('zapi_instance_id, zapi_token, zapi_client_token')
     .eq('id', agenciaId)
     .single();
 
@@ -33,16 +33,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Agência não encontrada' }, { status: 404 });
   }
 
-  const { zapi_instance_id, zapi_token } = agencia;
+  const { zapi_instance_id, zapi_token, zapi_client_token } = agencia;
   if (!zapi_instance_id || !zapi_token) {
     return NextResponse.json({ configured: false });
   }
 
   const base = `https://api.z-api.io/instances/${zapi_instance_id}/token/${zapi_token}`;
+  const headers: Record<string, string> = {};
+  if (zapi_client_token) headers['Client-Token'] = zapi_client_token;
   try {
     const [statusRes, qrRes] = await Promise.all([
-      fetch(`${base}/status`, { cache: 'no-store' }),
-      fetch(`${base}/qr-code/image`, { cache: 'no-store' }),
+      fetch(`${base}/status`, { cache: 'no-store', headers }),
+      fetch(`${base}/qr-code/image`, { cache: 'no-store', headers }),
     ]);
 
     const statusJson: ZapiStatusResp = await statusRes.json().catch(() => ({}));

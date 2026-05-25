@@ -502,7 +502,7 @@ app.get('/api/agencias/:id/qrcode', async (req, res) => {
     const { id } = req.params;
     const { data: agencia, error } = await getSupabase()
       .from('agencias')
-      .select('zapi_instance_id, zapi_token')
+      .select('zapi_instance_id, zapi_token, zapi_client_token')
       .eq('id', id)
       .single();
 
@@ -512,8 +512,8 @@ app.get('/api/agencias/:id/qrcode', async (req, res) => {
     }
 
     const [qrcode, status] = await Promise.all([
-      getQRCode(agencia.zapi_instance_id, agencia.zapi_token),
-      getStatus(agencia.zapi_instance_id, agencia.zapi_token),
+      getQRCode(agencia.zapi_instance_id, agencia.zapi_token, agencia.zapi_client_token),
+      getStatus(agencia.zapi_instance_id, agencia.zapi_token, agencia.zapi_client_token),
     ]);
 
     res.json({ qrcode, status });
@@ -538,18 +538,23 @@ app.post('/api/agencias/:id/relatorio/teste', async (req, res) => {
 app.post('/api/agencias/:id/zapi', async (req, res) => {
   try {
     const { id } = req.params;
-    const { instanceId, token } = req.body ?? {};
+    const { instanceId, token, clientToken } = req.body ?? {};
     if (!instanceId || !token) {
       return res.status(400).json({ error: 'instanceId e token são obrigatórios' });
     }
 
+    const update: Record<string, unknown> = {
+      zapi_instance_id: instanceId,
+      zapi_token: token,
+      zapi_status: 'aguardando_qr',
+    };
+    if (clientToken !== undefined) {
+      update.zapi_client_token = clientToken || null;
+    }
+
     const { error } = await getSupabase()
       .from('agencias')
-      .update({
-        zapi_instance_id: instanceId,
-        zapi_token: token,
-        zapi_status: 'aguardando_qr',
-      })
+      .update(update)
       .eq('id', id);
 
     if (error) return res.status(500).json({ error: error.message });
