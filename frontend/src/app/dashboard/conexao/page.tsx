@@ -132,6 +132,27 @@ function DemoFlow() {
   const [copied, setCopied] = useState(false);
   const formatado = formatWhatsapp(DEMO_WHATSAPP);
 
+  // Vínculo do celular pessoal pra cair na própria conta
+  const [vinculo, setVinculo] = useState<{
+    whatsapp_dono: string | null;
+    demo_cliente_whatsapp: string | null;
+  } | null>(null);
+  const [opcao, setOpcao] = useState<'dono' | 'outro'>('dono');
+  const [outroNumero, setOutroNumero] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [erroVinculo, setErroVinculo] = useState<string | null>(null);
+
+  const carregarVinculo = useCallback(async () => {
+    try {
+      const res = await fetch('/api/conexao/demo', { cache: 'no-store' });
+      if (res.ok) setVinculo(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    carregarVinculo();
+  }, [carregarVinculo]);
+
   async function copiar() {
     if (!DEMO_WHATSAPP) return;
     try {
@@ -139,6 +160,41 @@ function DemoFlow() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {}
+  }
+
+  async function salvarVinculo() {
+    setSalvando(true);
+    setErroVinculo(null);
+    try {
+      const body =
+        opcao === 'dono'
+          ? { usar_whatsapp_dono: true }
+          : { whatsapp: outroNumero.replace(/\D/g, '') };
+      const res = await fetch('/api/conexao/demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      await carregarVinculo();
+      setOutroNumero('');
+    } catch (e: any) {
+      setErroVinculo(e?.message ?? 'Erro ao vincular');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function desvincular() {
+    if (!confirm('Desvincular este número da sua conta de testes?')) return;
+    setSalvando(true);
+    try {
+      await fetch('/api/conexao/demo', { method: 'DELETE' });
+      await carregarVinculo();
+    } finally {
+      setSalvando(false);
+    }
   }
 
   if (!DEMO_WHATSAPP) {
@@ -151,13 +207,14 @@ function DemoFlow() {
   }
 
   const link = `https://wa.me/${DEMO_WHATSAPP}`;
+  const vinculado = !!vinculo?.demo_cliente_whatsapp;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <h2 className="font-semibold mb-1">Use nosso número demo</h2>
       <p className="text-sm text-gray-600 mb-5">
         Você não precisa instalar nada. Mande uma mensagem para o número abaixo e o bot
-        já vai responder usando as configurações da sua conta.
+        responde usando as configurações da sua conta.
       </p>
 
       <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-xl p-5 mb-5">
@@ -184,11 +241,98 @@ function DemoFlow() {
         </div>
       </div>
 
+      {/* Vínculo do celular pessoal */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm">
+        <p className="font-semibold text-blue-900 mb-1">
+          📲 Vincule o WhatsApp que vai usar para testar
+        </p>
+        <p className="text-xs text-blue-800 mb-3">
+          Sem isso, mensagens que você mandar do seu celular criam uma conta de testes
+          paralela e não aparecem no seu painel.
+        </p>
+
+        {vinculado ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm">
+              ✅ Vinculado: <strong className="font-mono">{vinculo?.demo_cliente_whatsapp}</strong>
+            </div>
+            <button
+              onClick={desvincular}
+              disabled={salvando}
+              className="text-xs text-red-600 hover:text-red-800 underline"
+            >
+              Desvincular
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="vinc"
+                checked={opcao === 'dono'}
+                onChange={() => setOpcao('dono')}
+                className="mt-0.5"
+              />
+              <span>
+                Usar o <strong>WhatsApp do dono</strong> como número pessoal de teste
+                {vinculo?.whatsapp_dono && (
+                  <span className="ml-1 text-blue-700 font-mono">
+                    ({vinculo.whatsapp_dono})
+                  </span>
+                )}
+                {!vinculo?.whatsapp_dono && (
+                  <span className="ml-1 text-amber-700 text-xs">
+                    (cadastre primeiro em Configurações)
+                  </span>
+                )}
+              </span>
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="vinc"
+                checked={opcao === 'outro'}
+                onChange={() => setOpcao('outro')}
+                className="mt-0.5"
+              />
+              <span>Cadastrar outro número de teste</span>
+            </label>
+            {opcao === 'outro' && (
+              <input
+                type="tel"
+                inputMode="tel"
+                value={outroNumero}
+                onChange={(e) => setOutroNumero(e.target.value)}
+                placeholder="(34) 91234-5678"
+                className="ml-6 mt-1 w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            )}
+            <div>
+              <button
+                onClick={salvarVinculo}
+                disabled={
+                  salvando ||
+                  (opcao === 'dono' && !vinculo?.whatsapp_dono) ||
+                  (opcao === 'outro' && outroNumero.replace(/\D/g, '').length < 10)
+                }
+                className="mt-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                {salvando ? 'Salvando…' : 'Vincular número'}
+              </button>
+              {erroVinculo && (
+                <p className="text-xs text-red-700 mt-2">{erroVinculo}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
         <li>
           Salve o número: <strong>{formatado}</strong>
         </li>
-        <li>Mande qualquer mensagem (ex.: "oi")</li>
+        <li>Mande qualquer mensagem (ex.: "oi") do número vinculado acima</li>
         <li>
           O bot vai responder usando <strong>suas configurações</strong> — prompt,
           horário, distribuição etc.
