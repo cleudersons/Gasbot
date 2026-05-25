@@ -195,6 +195,7 @@ export default async function PlanosPage() {
                     precoFundador={p.precoFundador ?? p.preco}
                     urlNormal={urlNormal}
                     urlFundador={urlFundador}
+                    ofertaFundador={p.ofertaFundador ?? ''}
                     fundadorDisponivel={fundadorDisponivel && !!p.ofertaFundador}
                     jaAssinante={jaAssinante}
                     vagasRestantes={vagasRestantes}
