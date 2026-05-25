@@ -15,12 +15,13 @@ export interface Agencia {
   prompt_customizado: string | null;
   demo_cliente_whatsapp: string | null;
   agente_ativo: boolean;
+  sla_minutos: number | null;
 }
 
 const AGENCIA_COLUMNS =
   'id, nome, provider, phone_number_id, whatsapp_token, zapi_instance_id, zapi_token, ' +
   'status_conta, plano, trial_inicio, trial_atendimentos, prompt_customizado, ' +
-  'demo_cliente_whatsapp, agente_ativo';
+  'demo_cliente_whatsapp, agente_ativo, sla_minutos';
 
 function isDemoMeta(phoneNumberId: string | null | undefined): boolean {
   const demo = process.env.META_DEMO_PHONE_NUMBER_ID;

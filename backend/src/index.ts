@@ -15,6 +15,8 @@ import {
   buscarPedidosPendentes,
   buscarPedidoPorPrefixo,
   buscarPedidosAtivosDoEntregador,
+  buscarPedidoAtivoDoCliente,
+  marcarContatoEntregador,
   atualizarStatus,
   Pedido,
 } from './services/pedidos.service';
@@ -274,6 +276,27 @@ async function processarMensagemRecebida(
     const contextoCliente = montarContextoCliente(cliente);
     if (contextoCliente) marcas.push(contextoCliente);
 
+    // Pedido ativo desse cliente — memória persistente além dos 30 min de conversa
+    const pedidoAtivo = await buscarPedidoAtivoDoCliente(agenciaId, from);
+    if (pedidoAtivo) {
+      const slaMin = agencia.sla_minutos ?? 60;
+      const idadeMin = (Date.now() - new Date(pedidoAtivo.criado_em).getTime()) / 60000;
+      const atrasado = idadeMin > slaMin;
+      const cooldownMin = pedidoAtivo.ultimo_contato_entregador
+        ? (Date.now() - new Date(pedidoAtivo.ultimo_contato_entregador).getTime()) / 60000
+        : Infinity;
+      const podeContatar = cooldownMin > 15;
+      marcas.push(
+        `[PEDIDO_ATIVO: id_curto=${pedidoAtivo.id.slice(0, 8)}, ` +
+          `status=${pedidoAtivo.status}, ` +
+          `produto=${pedidoAtivo.produto} x${pedidoAtivo.quantidade}, ` +
+          `criado_ha_min=${Math.round(idadeMin)}, ` +
+          `entregador=${pedidoAtivo.entregador_nome ?? 'aguardando'}, ` +
+          `entregador_whatsapp=${pedidoAtivo.entregador_whatsapp ?? ''}, ` +
+          `atrasado=${atrasado}, pode_contatar_entregador=${podeContatar}]`,
+      );
+    }
+
     const textoParaIA = marcas.length ? `${marcas.join('\n')}\n\n${text}` : text;
 
     const historico = await buscarHistorico(agenciaId, from);
@@ -350,6 +373,26 @@ async function processarMensagemRecebida(
         }
       }
       mensagemCliente = mensagemCliente.replace(/^NOME_CLIENTE:[^\n]*\n?/im, '').trim();
+    }
+
+    // Detectar CONTATAR_ENTREGADOR:{whatsapp_entregador}
+    const contatoMatch = reply.match(/CONTATAR_ENTREGADOR:\s*(\d+)/);
+    if (contatoMatch && pedidoAtivo && pedidoAtivo.entregador_id) {
+      const whatsEnt = contatoMatch[1].trim();
+      try {
+        await whatsappService.sendMessage(
+          agenciaId,
+          whatsEnt,
+          `⚠️ O cliente ${pedidoAtivo.cliente_whatsapp} está perguntando sobre o pedido #${pedidoAtivo.id.slice(0, 8)} (${pedidoAtivo.produto} x${pedidoAtivo.quantidade}). Qual o status atual?`,
+        );
+        await marcarContatoEntregador(pedidoAtivo.id);
+        console.log(
+          `[contato] entregador ${whatsEnt} notificado sobre pedido ${pedidoAtivo.id.slice(0, 8)}`,
+        );
+      } catch (err: any) {
+        console.error('[contato] falha:', err?.response?.data ?? err?.message ?? err);
+      }
+      mensagemCliente = mensagemCliente.replace(/^CONTATAR_ENTREGADOR:[^\n]*\n?/m, '').trim();
     }
 
     // Detectar LEMBRETE_CONFIRMADO:{dias}  (formato flexível)

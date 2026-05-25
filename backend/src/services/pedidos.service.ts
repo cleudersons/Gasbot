@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase';
+import { variantesWhatsappBR } from '../utils/whatsapp-format';
 
 export type PedidoStatus =
   | 'pendente'
@@ -103,6 +104,67 @@ export async function buscarPedidosAtivosDoEntregador(
 
   if (error) throw new Error(`Erro ao buscar pedidos do entregador: ${error.message}`);
   return (data ?? []) as Pedido[];
+}
+
+export interface PedidoAtivoComEntregador extends Pedido {
+  entregador_nome: string | null;
+  entregador_whatsapp: string | null;
+  ultimo_contato_entregador?: string | null;
+}
+
+/**
+ * Procura o pedido ativo (pendente | aceito | em_entrega) mais recente desse cliente.
+ * Resolve as variantes brasileiras com/sem "9" no DDD.
+ * Retorna também nome e whatsapp do entregador quando entregador_id está setado.
+ */
+export async function buscarPedidoAtivoDoCliente(
+  agenciaId: string,
+  whatsapp: string,
+): Promise<PedidoAtivoComEntregador | null> {
+  const db = getSupabase();
+  const variantes = variantesWhatsappBR(whatsapp);
+
+  const { data, error } = await db
+    .from('pedidos')
+    .select('*')
+    .eq('agencia_id', agenciaId)
+    .in('cliente_whatsapp', variantes)
+    .in('status', ['pendente', 'aceito', 'em_entrega'])
+    .order('criado_em', { ascending: false })
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+
+  const pedido = data[0] as Pedido & { ultimo_contato_entregador?: string | null };
+
+  let entregadorNome: string | null = null;
+  let entregadorWhats: string | null = null;
+  if (pedido.entregador_id) {
+    const { data: ent } = await db
+      .from('entregadores')
+      .select('nome, whatsapp')
+      .eq('id', pedido.entregador_id)
+      .maybeSingle();
+    if (ent) {
+      entregadorNome = (ent as any).nome ?? null;
+      entregadorWhats = (ent as any).whatsapp ?? null;
+    }
+  }
+
+  return {
+    ...pedido,
+    entregador_nome: entregadorNome,
+    entregador_whatsapp: entregadorWhats,
+  };
+}
+
+/** Registra que o entregador acabou de ser cobrado por causa desse pedido. */
+export async function marcarContatoEntregador(pedidoId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('pedidos')
+    .update({ ultimo_contato_entregador: new Date().toISOString() })
+    .eq('id', pedidoId);
+  if (error) console.error('[pedido] erro ao marcar contato entregador:', error.message);
 }
 
 export async function buscarPedidosPendentes(agenciaId: string): Promise<Pedido[]> {
