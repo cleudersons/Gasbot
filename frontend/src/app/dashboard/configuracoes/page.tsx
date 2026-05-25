@@ -8,6 +8,8 @@ import {
   PromptConfig,
   PROMPT_CONFIG_DEFAULT,
   Tom,
+  PromptModo,
+  personaPadrao,
 } from '@/lib/prompt-builder';
 
 interface Agencia {
@@ -29,6 +31,8 @@ export default function ConfiguracoesPage() {
   const [agencia, setAgencia] = useState<Agencia | null>(null);
 
   const [promptConfig, setPromptConfig] = useState<PromptConfig>(PROMPT_CONFIG_DEFAULT);
+  const [promptModo, setPromptModo] = useState<PromptModo>('form');
+  const [textoLivre, setTextoLivre] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const [whatsappDono, setWhatsappDono] = useState('');
@@ -78,7 +82,10 @@ export default function ConfiguracoesPage() {
       }
 
       if (pRes.ok && pJson.config && Object.keys(pJson.config).length > 0) {
-        setPromptConfig({ ...PROMPT_CONFIG_DEFAULT, ...(pJson.config as PromptConfig) });
+        const cfg = { ...PROMPT_CONFIG_DEFAULT, ...(pJson.config as PromptConfig) };
+        setPromptConfig(cfg);
+        setPromptModo(cfg.modo ?? 'form');
+        setTextoLivre(cfg.texto_livre ?? '');
       }
     } finally {
       setLoading(false);
@@ -113,13 +120,40 @@ export default function ConfiguracoesPage() {
   async function salvarPrompt() {
     setSavingPrompt(true);
     setMsg(null);
+    const payload: PromptConfig = {
+      ...promptConfig,
+      modo: promptModo,
+      texto_livre: textoLivre,
+    };
     const res = await fetch('/api/configuracoes/prompt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(promptConfig),
+      body: JSON.stringify(payload),
     });
     setSavingPrompt(false);
     setMsg(res.ok ? '✅ Configurações da atendente salvas!' : 'Erro ao salvar');
+  }
+
+  function trocarModo(novo: PromptModo) {
+    if (novo === promptModo) return;
+    if (novo === 'form' && textoLivre.trim().length > 0) {
+      const ok = window.confirm(
+        'Você tem um prompt no modo avançado. Trocar pro modo simples não apaga ' +
+          'ele, mas só os campos do formulário serão usados quando salvar. Continuar?',
+      );
+      if (!ok) return;
+    }
+    setPromptModo(novo);
+  }
+
+  function carregarModeloPadrao() {
+    if (textoLivre.trim().length > 0) {
+      const ok = window.confirm(
+        'Isso vai SUBSTITUIR o texto atual do modo avançado pelo modelo padrão da Carla/Farligaz. Continuar?',
+      );
+      if (!ok) return;
+    }
+    setTextoLivre(personaPadrao());
   }
 
   async function salvarRelatorio() {
@@ -194,7 +228,11 @@ export default function ConfiguracoesPage() {
     return <div className="p-10 flex justify-center"><LoadingSpinner size={28} /></div>;
   }
 
-  const promptPreview = buildPrompt(promptConfig);
+  const promptPreview = buildPrompt({
+    ...promptConfig,
+    modo: promptModo,
+    texto_livre: textoLivre,
+  });
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'agente', label: 'Agente', icon: '🤖' },
@@ -267,9 +305,81 @@ export default function ConfiguracoesPage() {
         <div>
           <h2 className="font-semibold mb-1">Sua atendente virtual</h2>
           <p className="text-sm text-gray-500">
-            Preencha os campos abaixo. O sistema monta o roteiro completo da sua
-            atendente automaticamente.
+            Escolha como quer configurar o roteiro da atendente.
           </p>
+        </div>
+
+        <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => trocarModo('form')}
+            className={`px-4 py-2 ${
+              promptModo === 'form'
+                ? 'bg-orange-500 text-white font-semibold'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            📋 Simples (formulário)
+          </button>
+          <button
+            type="button"
+            onClick={() => trocarModo('livre')}
+            className={`px-4 py-2 border-l border-gray-300 ${
+              promptModo === 'livre'
+                ? 'bg-orange-500 text-white font-semibold'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            ✍️ Avançado (texto livre)
+          </button>
+        </div>
+
+        {promptModo === 'livre' && (
+          <div className="space-y-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+              ⚠️ A parte técnica (formato de PEDIDO_CONFIRMADO, lembretes, validação de
+              endereço e horário) é mantida automaticamente pelo sistema. Você escreve só
+              a parte da persona, fluxo de atendimento e regras de negócio.
+            </div>
+
+            <button
+              type="button"
+              onClick={carregarModeloPadrao}
+              className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm"
+            >
+              📥 Carregar modelo padrão (Carla / Farligaz)
+            </button>
+
+            <textarea
+              value={textoLivre}
+              onChange={(e) => setTextoLivre(e.target.value)}
+              rows={20}
+              placeholder="Escreva aqui o roteiro completo da sua atendente virtual..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={salvarPrompt}
+                disabled={savingPrompt || textoLivre.trim().length === 0}
+                className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                {savingPrompt ? 'Salvando...' : 'Salvar configurações'}
+              </button>
+              <button
+                onClick={() => setPreviewOpen(true)}
+                className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm"
+              >
+                Ver como ficou o prompt
+              </button>
+            </div>
+          </div>
+        )}
+
+        {promptModo === 'form' && (
+        <>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
+          Preencha os campos abaixo — o sistema monta o roteiro completo automaticamente.
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -363,6 +473,8 @@ export default function ConfiguracoesPage() {
             Ver como ficou o prompt
           </button>
         </div>
+        </>
+        )}
       </section>
 
       {/* ============================================================ */}

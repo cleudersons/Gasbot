@@ -1,6 +1,9 @@
 export type Tom = 'simpatico' | 'formal' | 'direto';
+export type PromptModo = 'form' | 'livre';
 
 export interface PromptConfig {
+  modo?: PromptModo;          // padrão 'form'
+  texto_livre?: string;       // usado quando modo='livre'
   atendente: string;          // Nome da atendente — ex.: Carla
   deposito: string;           // Nome do depósito — ex.: Farligaz
   preco_normal: string;       // ex.: R$ 120,00
@@ -96,6 +99,16 @@ REGRAS GERAIS:
 `.trim();
 
 export function buildPrompt(c: PromptConfig): string {
+  // Modo avançado: cliente escreve a persona/fluxo livremente; o sistema só anexa
+  // o bloco técnico (PEDIDO_CONFIRMADO, LEMBRETE, FORA_HORARIO, validação endereço).
+  if (c.modo === 'livre') {
+    const texto = (c.texto_livre ?? '').trim();
+    if (texto.length > 0) {
+      return `${texto}\n\n${FIXO_TECNICO}`;
+    }
+    // se modo='livre' mas texto vazio, cai no fluxo do form (degrada graciosamente)
+  }
+
   const atendente = c.atendente?.trim() || 'a atendente';
   const deposito = c.deposito?.trim() || 'o depósito';
   const precoNormal = c.preco_normal?.trim() || 'R$ 120,00';
@@ -162,6 +175,19 @@ export function buildPrompt(c: PromptConfig): string {
   partes.push(FIXO_TECNICO);
 
   return partes.join('\n\n');
+}
+
+/**
+ * Retorna apenas a parte editável (persona + fluxo + tom + preços) sem o bloco
+ * técnico fixo. Usado pelo botão "Carregar modelo padrão" no modo avançado:
+ * o cliente vê o texto da Carla/Farligaz pronto pra editar, e o sistema anexa
+ * a parte técnica automaticamente na hora de salvar.
+ */
+export function personaPadrao(c: PromptConfig = PROMPT_CONFIG_DEFAULT): string {
+  const full = buildPrompt({ ...c, modo: 'form' });
+  // Remove o FIXO_TECNICO do fim
+  const idx = full.indexOf(FIXO_TECNICO);
+  return idx === -1 ? full : full.slice(0, idx).trimEnd();
 }
 
 export const PROMPT_CONFIG_DEFAULT: PromptConfig = {
