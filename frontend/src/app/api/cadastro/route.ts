@@ -4,12 +4,12 @@ import { supabaseAdmin } from '@/lib/supabase-server';
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  const nomeDeposito = body?.nome_deposito?.trim();
+  const nome = (body?.nome ?? body?.nome_deposito ?? '').trim();
   const email = body?.email?.trim().toLowerCase();
   const whatsapp: string = (body?.whatsapp ?? '').toString().replace(/\D/g, '');
   const senha: string = body?.senha ?? '';
 
-  if (!nomeDeposito || !email || !senha) {
+  if (!nome || !email || !senha) {
     return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 });
   }
   if (senha.length < 8) {
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const { data: agencia, error: errAg } = await db
     .from('agencias')
     .insert({
-      nome: nomeDeposito,
+      nome: `Depósito de ${nome}`,
       plano: 'trial',
       status_conta: 'trial',
       provider: 'demo',
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   const { error: errUser } = await db.from('usuarios').insert({
     email,
     senha_hash: senhaHash,
-    nome: nomeDeposito,
+    nome,
     agencia_id: agencia.id,
     is_master: false,
     ativo: true,
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
   // Registro silencioso no Sutofly Form (Mailrelay) — não bloqueia o cadastro
   if (whatsapp) {
-    registrarNoSutoflyForm({ nome: nomeDeposito, email, whatsapp }).catch((err) => {
+    registrarNoSutoflyForm({ nome, email, whatsapp }).catch((err) => {
       console.error('[Mailrelay] Falha ao registrar lead:', err);
     });
   }

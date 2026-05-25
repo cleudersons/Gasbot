@@ -8,7 +8,7 @@ import Logo from '@/components/Logo';
 
 export default function CadastroPage() {
   const router = useRouter();
-  const [nomeDeposito, setNomeDeposito] = useState('');
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [senha, setSenha] = useState('');
@@ -38,7 +38,7 @@ export default function CadastroPage() {
       const res = await fetch('/api/cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome_deposito: nomeDeposito, email, whatsapp: whatsappDigits, senha }),
+        body: JSON.stringify({ nome, email, whatsapp: whatsappDigits, senha }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
@@ -73,13 +73,13 @@ export default function CadastroPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Nome do depósito</label>
+            <label className="block text-sm font-medium mb-1">Nome</label>
             <input
               required
-              value={nomeDeposito}
-              onChange={(e) => setNomeDeposito(e.target.value)}
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="Depósito Central"
+              placeholder="Seu nome completo"
             />
           </div>
           <div>
@@ -102,7 +102,7 @@ export default function CadastroPage() {
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="(34) 98222-5260"
+              placeholder="(11) 91234-5678"
             />
           </div>
           <div>
