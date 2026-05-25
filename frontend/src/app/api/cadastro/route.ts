@@ -6,6 +6,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const nomeDeposito = body?.nome_deposito?.trim();
   const email = body?.email?.trim().toLowerCase();
+  const whatsapp: string = (body?.whatsapp ?? '').toString().replace(/\D/g, '');
   const senha: string = body?.senha ?? '';
 
   if (!nomeDeposito || !email || !senha) {
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       provider: 'demo',
       trial_inicio: new Date().toISOString(),
       trial_atendimentos: 0,
+      whatsapp_dono: whatsapp || null,
     })
     .select('id')
     .single();
@@ -65,5 +67,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errUser.message }, { status: 500 });
   }
 
+  // Registro silencioso no Sutofly Form (Mailrelay) — não bloqueia o cadastro
+  if (whatsapp) {
+    registrarNoSutoflyForm({ nome: nomeDeposito, email, whatsapp }).catch((err) => {
+      console.error('[Mailrelay] Falha ao registrar lead:', err);
+    });
+  }
+
   return NextResponse.json({ ok: true, agencia_id: agencia.id });
+}
+
+async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp: string }) {
+  const formId = process.env.NEXT_PUBLIC_SUTOFLY_FORM_ID ?? '6';
+  const url =
+    process.env.NEXT_PUBLIC_SUTOFLY_FORM_URL ?? 'https://pay.sutofly.com/form_submit.php';
+  const body = new URLSearchParams({
+    form_id: formId,
+    nome: dados.nome,
+    email: dados.email,
+    whatsapp: dados.whatsapp,
+  });
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
 }

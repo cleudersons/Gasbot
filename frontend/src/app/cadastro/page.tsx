@@ -10,6 +10,7 @@ export default function CadastroPage() {
   const router = useRouter();
   const [nomeDeposito, setNomeDeposito] = useState('');
   const [email, setEmail] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [senha, setSenha] = useState('');
   const [senha2, setSenha2] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +23,11 @@ export default function CadastroPage() {
       setError('As senhas não conferem.');
       return;
     }
+    const whatsappDigits = whatsapp.replace(/\D/g, '');
+    if (whatsappDigits.length < 10) {
+      setError('Informe um WhatsApp válido com DDD.');
+      return;
+    }
     if (senha.length < 8) {
       setError('A senha precisa ter pelo menos 8 caracteres.');
       return;
@@ -32,7 +38,7 @@ export default function CadastroPage() {
       const res = await fetch('/api/cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome_deposito: nomeDeposito, email, senha }),
+        body: JSON.stringify({ nome_deposito: nomeDeposito, email, whatsapp: whatsappDigits, senha }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
@@ -85,6 +91,18 @@ export default function CadastroPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
               placeholder="voce@empresa.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">WhatsApp</label>
+            <input
+              required
+              type="tel"
+              inputMode="tel"
+              value={whatsapp}
+              onChange={(e) => setWhatsapp(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              placeholder="(34) 98222-5260"
             />
           </div>
           <div>
