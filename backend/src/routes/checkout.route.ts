@@ -2,16 +2,8 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
 
-// Mapeamento oferta Sutofly → plano interno (seção 9 do planejamento)
-const PLANOS_SUTOFLY: Record<
-  string,
-  { plano: 'basico' | 'pro'; limite: number | null; fundador: boolean }
-> = {
-  sutogasbasico:          { plano: 'basico', limite: 200,  fundador: false },
-  sutogaspro:             { plano: 'pro',    limite: null, fundador: false },
-  sutogaspremiumfundador: { plano: 'basico', limite: 200,  fundador: true  },
-  sutogaspremiupro:       { plano: 'pro',    limite: null, fundador: true  },
-};
+// Mapeamento oferta → plano vem da tabela `planos` no Supabase.
+// Cadastrado pelo Painel Master em /master/planos.
 
 const router = Router();
 
@@ -53,15 +45,36 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
     if (evento !== 'pagamento_confirmado') {
       return res.status(400).json({ error: `Evento não suportado: ${evento}` });
     }
-    if (!oferta || !PLANOS_SUTOFLY[oferta]) {
-      return res.status(400).json({ error: `Oferta desconhecida: ${oferta}` });
+    if (!oferta) {
+      return res.status(400).json({ error: 'oferta obrigatória' });
     }
     if (!email && !agenciaIdRecebida) {
       return res.status(400).json({ error: 'email ou agencia_id obrigatório' });
     }
 
-    const mapping = PLANOS_SUTOFLY[oferta];
     const db = getSupabase();
+
+    // Lookup do plano pela tabela `planos` (cadastro dinâmico via /master/planos)
+    const { data: planoCfg, error: errPlano } = await db
+      .from('planos')
+      .select('categoria, limite_atendimentos, duracao_dias, fundador')
+      .eq('slug', oferta)
+      .eq('ativo', true)
+      .maybeSingle();
+
+    if (errPlano) {
+      console.error('[webhook/checkout] erro ao buscar plano:', errPlano);
+      return res.status(500).json({ error: 'Erro ao buscar plano' });
+    }
+    if (!planoCfg) {
+      return res.status(400).json({ error: `Plano não cadastrado: ${oferta}` });
+    }
+    const mapping = {
+      plano: planoCfg.categoria as 'basico' | 'pro',
+      limite: planoCfg.limite_atendimentos as number | null,
+      duracaoDias: planoCfg.duracao_dias as number,
+      fundador: !!planoCfg.fundador,
+    };
 
     // Localiza a agência — por id se vier, senão pelo email do usuário
     let agenciaId = agenciaIdRecebida ?? null;
@@ -117,9 +130,10 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
 
     // Atualiza a agência com plano, vencimento e dados de pagamento
     const agora = new Date();
-    const vencimento = new Date(agora.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const vencimento = new Date(agora.getTime() + mapping.duracaoDias * 24 * 60 * 60 * 1000);
     const updatePayload: Record<string, unknown> = {
       plano: mapping.plano,
+      plano_slug: oferta,
       status_conta: 'ativo',
       limite_atendimentos: mapping.limite,
       vencimento_plano: vencimento.toISOString(),
