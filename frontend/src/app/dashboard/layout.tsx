@@ -9,6 +9,8 @@ import {
   Plug,
   UserCircle,
   Rocket,
+  CreditCard,
+  User,
 } from 'lucide-react';
 import TrialBanner from '@/components/TrialBanner';
 import Logo from '@/components/Logo';
@@ -93,6 +95,8 @@ export default async function DashboardLayout({
           <NavLink href="/dashboard/clientes" icon={<UserCircle size={18} />} label="Clientes" />
           <NavLink href="/dashboard/entregadores" icon={<Users size={18} />} label="Entregadores" />
           <NavLink href="/dashboard/conexao" icon={<Plug size={18} />} label="Conexão" />
+          <NavLink href="/dashboard/planos" icon={<CreditCard size={18} />} label="Planos" />
+          <NavLink href="/dashboard/minha-conta" icon={<User size={18} />} label="Minha conta" />
           <NavLink href="/dashboard/configuracoes" icon={<Settings size={18} />} label="Configurações" />
         </nav>
 
