@@ -9,6 +9,7 @@ interface AgenciaDetalhe {
   id: string;
   nome: string;
   plano: string;
+  plano_slug?: string | null;
   status_conta: string;
   provider?: string | null;
   zapi_instance_id?: string | null;
@@ -17,6 +18,17 @@ interface AgenciaDetalhe {
   whatsapp_token?: string | null;
   whatsapp_dono?: string | null;
   agente_ativo?: boolean | null;
+  vencimento_plano?: string | null;
+}
+
+interface PlanoOpcao {
+  id: string;
+  slug: string;
+  nome: string;
+  categoria: 'basico' | 'pro';
+  duracao_dias: number;
+  fundador: boolean;
+  ativo: boolean;
 }
 
 interface Pedido {
@@ -43,6 +55,13 @@ export default function MasterAgenciaDetalhePage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Ativação manual de plano
+  const [planos, setPlanos] = useState<PlanoOpcao[]>([]);
+  const [planoSlug, setPlanoSlug] = useState('');
+  const [duracaoCustom, setDuracaoCustom] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [ativando, setAtivando] = useState(false);
+
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch(`/api/master/agencias/${id}`, { cache: 'no-store' });
@@ -60,6 +79,50 @@ export default function MasterAgenciaDetalhePage() {
   useEffect(() => {
     if (id) fetchData();
   }, [id, fetchData]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/master/planos', { cache: 'no-store' });
+        const json = await res.json();
+        if (res.ok) {
+          const ativos = (json.planos as PlanoOpcao[] | undefined)?.filter((p) => p.ativo) ?? [];
+          setPlanos(ativos);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  async function ativarPlano() {
+    if (!planoSlug) return;
+    const plano = planos.find((p) => p.slug === planoSlug);
+    const dur = duracaoCustom || (plano ? String(plano.duracao_dias) : '30');
+    if (!confirm(`Ativar "${plano?.nome ?? planoSlug}" nesta agência por ${dur} dias?`)) return;
+    setAtivando(true);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/master/agencias/${id}/ativar-plano`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: planoSlug,
+          duracao_dias: duracaoCustom ? Number(duracaoCustom) : undefined,
+          motivo: motivo || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      setMsg(`✅ Plano ${plano?.nome ?? planoSlug} ativado.`);
+      setPlanoSlug('');
+      setDuracaoCustom('');
+      setMotivo('');
+      fetchData();
+    } catch (err: any) {
+      setMsg(`Erro ao ativar: ${err?.message ?? err}`);
+    } finally {
+      setAtivando(false);
+    }
+  }
 
   async function patch(payload: Record<string, unknown>) {
     setSaving(true);
@@ -154,6 +217,68 @@ export default function MasterAgenciaDetalhePage() {
           </button>
           <span className="text-sm text-gray-600">Status atual: <strong>{a.status_conta}</strong></span>
         </div>
+        {a.plano_slug && (
+          <p className="text-xs text-gray-500 mt-2">
+            Slug pago: <code>{a.plano_slug}</code>
+            {a.vencimento_plano && (
+              <> · vence em {new Date(a.vencimento_plano).toLocaleDateString('pt-BR')}</>
+            )}
+          </p>
+        )}
+      </section>
+
+      <section className="bg-amber-50 rounded-xl border border-amber-200 p-5">
+        <h2 className="font-semibold mb-1">Ativar plano manualmente</h2>
+        <p className="text-xs text-gray-700 mb-3">
+          Use para cortesia, primeiros clientes ou suporte. Não cobra nada — só
+          atualiza o plano da agência no Supabase, igual ao webhook do checkout faria.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium mb-1">Plano</label>
+            <select
+              value={planoSlug}
+              onChange={(e) => setPlanoSlug(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">— Selecione —</option>
+              {planos.map((p) => (
+                <option key={p.id} value={p.slug}>
+                  {p.nome} ({p.categoria}, {p.duracao_dias}d{p.fundador ? ', fundador' : ''})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">
+              Duração custom (dias) <span className="text-gray-500">— opcional</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={duracaoCustom}
+              onChange={(e) => setDuracaoCustom(e.target.value)}
+              placeholder="vazio = usa duração do plano"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Motivo (audit log)</label>
+            <input
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="ex: cortesia primeiro cliente"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            />
+          </div>
+        </div>
+        <button
+          onClick={ativarPlano}
+          disabled={ativando || !planoSlug}
+          className="mt-3 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-medium px-4 py-2 rounded-lg text-sm"
+        >
+          {ativando ? 'Ativando…' : 'Ativar plano agora'}
+        </button>
       </section>
 
       <section id="zapi" className="bg-white rounded-xl border border-gray-200 p-5">
