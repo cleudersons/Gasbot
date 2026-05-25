@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { Check, Crown } from 'lucide-react';
+import AssinarButton from './AssinarButton';
 
 const CHECKOUT_BASE =
   process.env.NEXT_PUBLIC_CHECKOUT_BASE ?? 'https://pay.sutofly.com/checkout.php';
@@ -47,12 +48,11 @@ export default async function PlanosPage() {
   const jaAssinante = !!ag && planoAtual !== 'trial' && ag.status_conta === 'ativo';
   const ehFundador = !!ag?.programa_fundador;
 
+  const vagasTotal = cfg?.vagas_total ?? 50;
   const vagasRestantes = cfg
     ? Math.max(0, (cfg.vagas_total ?? 0) - (cfg.vagas_usadas ?? 0))
     : 0;
   const fundadorDisponivel = !!cfg?.ativo && vagasRestantes > 0;
-  // Mostra preços com desconto se já é fundador OU se ainda tem vaga
-  const mostrarDesconto = ehFundador || fundadorDisponivel;
 
   const planos = [
     {
@@ -63,6 +63,7 @@ export default async function PlanosPage() {
       features: ['Número demo', 'IA completa', 'Sem cartão'],
       oferta: null as string | null,
       ofertaFundador: null as string | null,
+      precoFundador: null as string | null,
     },
     {
       key: 'basico',
@@ -95,18 +96,15 @@ export default async function PlanosPage() {
         </p>
       </div>
 
-      {mostrarDesconto && (
+      {ehFundador && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-2xl p-5 flex items-center gap-4">
           <Crown className="text-amber-600 shrink-0" size={32} />
           <div className="flex-1">
             <p className="font-semibold text-amber-900">
-              Programa Premium Fundador
+              Você faz parte do Programa Premium Fundador
             </p>
             <p className="text-sm text-amber-800">
-              50% de desconto por 12 meses.{' '}
-              {ehFundador
-                ? 'Você faz parte do programa! Preços com desconto já aplicados abaixo.'
-                : `Restam ${vagasRestantes} vagas de ${cfg?.vagas_total}.`}
+              Preços com 50% de desconto aplicados abaixo.
             </p>
           </div>
         </div>
@@ -115,16 +113,17 @@ export default async function PlanosPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {planos.map((p) => {
           const atual = planoAtual === p.key;
-          const usarFundador = mostrarDesconto && p.ofertaFundador;
-          const ofertaUrl =
-            agenciaId && email && (usarFundador ? p.ofertaFundador : p.oferta)
-              ? checkoutUrl(
-                  (usarFundador ? p.ofertaFundador : p.oferta) as string,
-                  agenciaId,
-                  email,
-                  jaAssinante,
-                )
-              : null;
+          // Já é fundador: preço com desconto + checkout direto na oferta fundador, sem popup
+          const usarPrecoFundador = ehFundador && !!p.precoFundador;
+
+          const urlNormal =
+            agenciaId && email && p.oferta
+              ? checkoutUrl(p.oferta, agenciaId, email, jaAssinante)
+              : '';
+          const urlFundador =
+            agenciaId && email && p.ofertaFundador
+              ? checkoutUrl(p.ofertaFundador, agenciaId, email, jaAssinante)
+              : '';
 
           return (
             <div
@@ -144,7 +143,7 @@ export default async function PlanosPage() {
                 )}
               </div>
               <div className="mt-3">
-                {mostrarDesconto && p.precoFundador ? (
+                {usarPrecoFundador && p.precoFundador ? (
                   <div>
                     <span className="text-3xl font-bold">{p.precoFundador}</span>
                     <span className="ml-2 text-sm text-gray-400 line-through">
@@ -167,20 +166,40 @@ export default async function PlanosPage() {
               </ul>
 
               <div className="mt-5">
-                {ofertaUrl ? (
-                  <a
-                    href={ofertaUrl}
-                    className="block w-full text-center bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition"
-                  >
-                    {jaAssinante ? 'Fazer upgrade' : 'Assinar'}
-                  </a>
-                ) : (
+                {!p.oferta ? (
                   <button
                     disabled
                     className="block w-full text-center bg-gray-100 text-gray-500 font-medium py-2 rounded-lg cursor-not-allowed"
                   >
                     {atual ? 'Plano atual' : 'Indisponível'}
                   </button>
+                ) : !urlNormal ? (
+                  <button
+                    disabled
+                    className="block w-full text-center bg-gray-100 text-gray-500 font-medium py-2 rounded-lg cursor-not-allowed"
+                  >
+                    Indisponível
+                  </button>
+                ) : ehFundador ? (
+                  // Já é fundador → direto na oferta com desconto, sem popup
+                  <a
+                    href={urlFundador || urlNormal}
+                    className="block w-full text-center bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition"
+                  >
+                    {jaAssinante ? 'Fazer upgrade' : 'Assinar'}
+                  </a>
+                ) : (
+                  <AssinarButton
+                    planoNome={p.nome}
+                    precoNormal={p.preco}
+                    precoFundador={p.precoFundador ?? p.preco}
+                    urlNormal={urlNormal}
+                    urlFundador={urlFundador}
+                    fundadorDisponivel={fundadorDisponivel && !!p.ofertaFundador}
+                    jaAssinante={jaAssinante}
+                    vagasRestantes={vagasRestantes}
+                    vagasTotal={vagasTotal}
+                  />
                 )}
               </div>
             </div>

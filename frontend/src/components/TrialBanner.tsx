@@ -25,7 +25,7 @@ export default function TrialBanner({ statusConta, trialInicio, trialAtendimento
           <strong>⏰ Trial expirado.</strong> Assine para continuar atendendo seus clientes.
         </div>
         <Link
-          href="/dashboard/configuracoes"
+          href="/dashboard/planos"
           className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
         >
           Assinar agora
@@ -41,7 +41,7 @@ export default function TrialBanner({ statusConta, trialInicio, trialAtendimento
         {diasRestantes} dia(s) restantes
       </div>
       <Link
-        href="/dashboard/configuracoes"
+        href="/dashboard/planos"
         className="bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium px-3 py-1.5 rounded-lg"
       >
         Assinar agora
