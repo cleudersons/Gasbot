@@ -298,6 +298,9 @@ export default function MasterAgenciaDetalhePage() {
             Painel Z-API → Segurança → "Token de segurança da conta" (item 3). Obrigatório se estiver ATIVO.
           </p>
         </div>
+
+        <ZapiWebhookHint />
+
         <button
           onClick={() => patch({ provider: 'zapi' })}
           disabled={saving}
@@ -362,6 +365,44 @@ function Card({ label, value }: { label: string; value: number }) {
     <div className="bg-white rounded-xl border border-gray-200 p-4">
       <div className="text-sm text-gray-500">{label}</div>
       <div className="text-3xl font-bold mt-1">{value}</div>
+    </div>
+  );
+}
+
+function ZapiWebhookHint() {
+  const base = process.env.NEXT_PUBLIC_API_URL ?? 'https://sutogas-backend-production.up.railway.app';
+  const url = `${base.replace(/\/$/, '')}/webhook/zapi`;
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+
+  return (
+    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+      <p className="font-medium text-blue-900 mb-1">⚙️ Configure isto no painel Z-API</p>
+      <p className="text-xs text-blue-800 mb-2">
+        Z-API → Webhooks e configurações gerais → <strong>Webhook ao receber</strong>:
+      </p>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={url}
+          className="flex-1 bg-white border border-blue-300 rounded px-2 py-1.5 text-xs font-mono"
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <button
+          type="button"
+          onClick={copy}
+          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded"
+        >
+          {copied ? 'Copiado!' : 'Copiar'}
+        </button>
+      </div>
     </div>
   );
 }
