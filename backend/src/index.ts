@@ -41,6 +41,7 @@ import {
   montarContextoCliente,
 } from './services/cliente.service';
 import { TenantAIConfig } from './types/ai.types';
+import checkoutRoute from './routes/checkout.route';
 
 // inicia jobs (auto-start ao importar)
 import './jobs/entrega.job';
@@ -68,6 +69,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 });
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+app.use(checkoutRoute);
 
 // Meta webhook verification
 app.get('/webhook', (req, res) => {
