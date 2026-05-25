@@ -26,8 +26,10 @@ import { getQRCode, getStatus } from './services/qrcode.service';
 import { enviarRelatorio } from './services/relatorio.service';
 import {
   resolverAgenciaFromMeta,
+  resolverAgenciaFromZapi,
   avaliarTrial,
   incrementarAtendimentoTrial,
+  Agencia,
 } from './services/agencia-routing';
 import { estaNoHorario, proximaAbertura, janelaHorarioStr } from './services/horario.service';
 import { distribuirPedido } from './services/distribuicao.service';
@@ -76,30 +78,16 @@ app.get('/webhook', (req, res) => {
   return res.sendStatus(403);
 });
 
-// Meta webhook receiver
-app.post('/webhook', async (req, res) => {
-  res.sendStatus(200);
-
+/**
+ * Núcleo do processamento de uma mensagem recebida — chamado pelos webhooks
+ * (Meta e Z-API) depois que cada um já parseou o payload no seu formato.
+ */
+async function processarMensagemRecebida(
+  agencia: Agencia,
+  from: string,
+  text: string,
+): Promise<void> {
   try {
-    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
-    const message = value?.messages?.[0];
-    if (!message) return;
-
-    const from: string = message.from;
-    const text: string | undefined =
-      message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
-    if (!from || !text) return;
-
-    const phoneNumberIdRecebedor: string | undefined = value?.metadata?.phone_number_id;
-
-    // Resolver agência destinatária
-    const agencia = await resolverAgenciaFromMeta(phoneNumberIdRecebedor, from);
-    if (!agencia) {
-      console.error(
-        `[webhook] Nenhuma agência encontrada para phone_number_id=${phoneNumberIdRecebedor}`,
-      );
-      return;
-    }
     const agenciaId = agencia.id;
 
     // Conta suspensa: ignorar
@@ -393,6 +381,72 @@ app.post('/webhook', async (req, res) => {
     console.log(`[webhook] Resposta enviada para ${from}`);
   } catch (err: any) {
     console.error('[webhook] Erro:', err?.response?.data ?? err?.message ?? err);
+  }
+}
+
+// Meta webhook receiver
+app.post('/webhook', async (req, res) => {
+  res.sendStatus(200);
+
+  try {
+    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+    const message = value?.messages?.[0];
+    if (!message) return;
+
+    const from: string = message.from;
+    const text: string | undefined =
+      message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
+    if (!from || !text) return;
+
+    const phoneNumberIdRecebedor: string | undefined = value?.metadata?.phone_number_id;
+
+    const agencia = await resolverAgenciaFromMeta(phoneNumberIdRecebedor, from);
+    if (!agencia) {
+      console.error(
+        `[webhook] Nenhuma agência encontrada para phone_number_id=${phoneNumberIdRecebedor}`,
+      );
+      return;
+    }
+
+    await processarMensagemRecebida(agencia, from, text);
+  } catch (err: any) {
+    console.error('[webhook meta] erro no parser:', err?.message ?? err);
+  }
+});
+
+// Z-API webhook receiver — POST /webhook/zapi
+// Formato do payload Z-API (resumido):
+//   { instanceId, phone, fromMe, type, text: { message }, ... }
+// Configure no painel Z-API:
+//   Webhook ao receber: https://<seu-host>/webhook/zapi
+app.post('/webhook/zapi', async (req, res) => {
+  res.sendStatus(200);
+
+  try {
+    const body = req.body ?? {};
+    if (body.fromMe === true) return; // ignora ecos de mensagens enviadas por nós
+
+    const instanceId: string | undefined = body.instanceId;
+    const from: string | undefined = body.phone;
+    const text: string | undefined =
+      body.text?.message ??
+      body.buttonsResponseMessage?.message ??
+      body.listResponseMessage?.message ??
+      body.message;
+
+    if (!from || !text) return;
+
+    const agencia = await resolverAgenciaFromZapi(instanceId, from);
+    if (!agencia) {
+      console.error(
+        `[webhook zapi] Nenhuma agência encontrada para instanceId=${instanceId}`,
+      );
+      return;
+    }
+
+    await processarMensagemRecebida(agencia, from, text);
+  } catch (err: any) {
+    console.error('[webhook zapi] erro no parser:', err?.message ?? err);
   }
 });
 
