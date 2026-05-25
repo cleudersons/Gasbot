@@ -15,6 +15,7 @@ interface Pedido {
   criado_em: string;
   maps_link?: string;
   forma_pagamento?: string | null;
+  status_auto?: boolean;
 }
 
 const ACTIVE_STATUSES = new Set(['pendente', 'aceito', 'em_entrega']);
@@ -126,7 +127,19 @@ export default function PedidosPage() {
                     <td className="px-4 py-3 max-w-xs truncate" title={p.endereco}>{p.endereco}</td>
                     <td className="px-4 py-3 text-gray-700 capitalize">{p.forma_pagamento ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{p.cliente_whatsapp}</td>
-                    <td className="px-4 py-3"><Badge status={p.status} /></td>
+                    <td className="px-4 py-3">
+                      <div className="inline-flex items-center gap-1">
+                        <Badge status={p.status} />
+                        {p.status_auto && (
+                          <span
+                            title="Status atualizado automaticamente pelo sistema (entregador não respondeu)"
+                            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-100 border border-yellow-400 text-yellow-700 text-xs font-bold"
+                          >
+                            !
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">
                       {new Date(p.criado_em).toLocaleString('pt-BR')}
                     </td>

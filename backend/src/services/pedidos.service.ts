@@ -20,6 +20,9 @@ export interface Pedido {
   status: PedidoStatus;
   criado_em: string;
   forma_pagamento?: string | null;
+  status_auto?: boolean;
+  status_atualizado_em?: string | null;
+  entregador_id?: string | null;
 }
 
 export async function salvarPedido(
@@ -58,6 +61,9 @@ export async function salvarPedido(
  * Procura um pedido pelo prefixo curto do UUID (mínimo 6 chars).
  * Aceita também o UUID completo. Retorna null se não achar ou se
  * houver mais de um match (ambíguo).
+ *
+ * Filtragem feita em JS porque o supabase-js não suporta LIKE em colunas UUID
+ * (precisaria de cast ::text, que o PostgREST não aceita em .filter()).
  */
 export async function buscarPedidoPorPrefixo(
   agenciaId: string,
@@ -66,16 +72,21 @@ export async function buscarPedidoPorPrefixo(
   const p = prefixo.trim().toLowerCase();
   if (p.length < 6) return { pedido: null, ambiguo: false };
 
+  // Filtra só pedidos ativos pra não confundir com pedidos antigos já fechados
   const { data, error } = await getSupabase()
     .from('pedidos')
     .select('*')
     .eq('agencia_id', agenciaId)
-    .like('id::text', `${p}%`)
-    .limit(2);
+    .in('status', ['pendente', 'aceito', 'em_entrega'])
+    .order('criado_em', { ascending: false })
+    .limit(50);
 
-  if (error || !data || data.length === 0) return { pedido: null, ambiguo: false };
-  if (data.length > 1) return { pedido: null, ambiguo: true };
-  return { pedido: data[0] as Pedido, ambiguo: false };
+  if (error || !data) return { pedido: null, ambiguo: false };
+
+  const matches = (data as Pedido[]).filter((r) => r.id.toLowerCase().startsWith(p));
+  if (matches.length === 0) return { pedido: null, ambiguo: false };
+  if (matches.length > 1) return { pedido: null, ambiguo: true };
+  return { pedido: matches[0], ambiguo: false };
 }
 
 export async function buscarPedidosAtivosDoEntregador(
@@ -110,8 +121,13 @@ export async function atualizarStatus(
   pedidoId: string,
   status: PedidoStatus,
   entregadorId?: string,
+  opts: { auto?: boolean } = {},
 ): Promise<void> {
-  const update: Record<string, unknown> = { status };
+  const update: Record<string, unknown> = {
+    status,
+    status_atualizado_em: new Date().toISOString(),
+    status_auto: !!opts.auto,
+  };
   if (entregadorId) update.entregador_id = entregadorId;
 
   const { error } = await getSupabase().from('pedidos').update(update).eq('id', pedidoId);
