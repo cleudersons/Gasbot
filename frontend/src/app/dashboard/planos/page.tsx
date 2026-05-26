@@ -20,8 +20,18 @@ interface PlanoRow {
 
 // Features fixas por categoria (não estão na tabela ainda; futuro: coluna features JSONB)
 const FEATURES_POR_CATEGORIA: Record<'basico' | 'pro', string[]> = {
-  basico: ['1 número WhatsApp', 'Z-API ou Meta API', 'Suporte prioritário'],
-  pro: ['Até 3 números WhatsApp', 'Z-API ou Meta API', 'Relatórios avançados'],
+  basico: [
+    '1 número de WhatsApp (Z-API ou Meta API Oficial)',
+    'IA completa',
+    '2 entregadores',
+    'Suporte prioritário',
+  ],
+  pro: [
+    'Até 3 números de WhatsApp (Z-API ou Meta API Oficial)',
+    'Mesmo agente nos 3 números',
+    'Entregadores ilimitados',
+    'Relatórios avançados',
+  ],
 };
 
 function formatPreco(v: number | null): string {
@@ -115,7 +125,7 @@ export default async function PlanosPage() {
           nome="Trial"
           preco="Grátis"
           detalhe="7 dias OU 20 atendimentos"
-          features={['Número demo', 'IA completa', 'Sem cartão']}
+          features={['Número demo ou real', 'IA completa', '1 entregador', 'Sem cartão']}
           botao={
             <button
               disabled
