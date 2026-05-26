@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
+import { Eye, EyeOff } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 export default function CadastroPage() {
@@ -13,6 +14,8 @@ export default function CadastroPage() {
   const [whatsapp, setWhatsapp] = useState('');
   const [senha, setSenha] = useState('');
   const [senha2, setSenha2] = useState('');
+  const [showSenha, setShowSenha] = useState(false);
+  const [showSenha2, setShowSenha2] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,24 +110,44 @@ export default function CadastroPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Senha</label>
-            <input
-              required
-              type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-              placeholder="Mínimo 8 caracteres"
-            />
+            <div className="relative">
+              <input
+                required
+                type={showSenha ? 'text' : 'password'}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Mínimo 8 caracteres"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSenha((v) => !v)}
+                aria-label={showSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+              >
+                {showSenha ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Confirmar senha</label>
-            <input
-              required
-              type="password"
-              value={senha2}
-              onChange={(e) => setSenha2(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
+            <div className="relative">
+              <input
+                required
+                type={showSenha2 ? 'text' : 'password'}
+                value={senha2}
+                onChange={(e) => setSenha2(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSenha2((v) => !v)}
+                aria-label={showSenha2 ? 'Ocultar senha' : 'Mostrar senha'}
+                className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700"
+              >
+                {showSenha2 ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && (
