@@ -477,6 +477,10 @@ app.post('/webhook', async (req, res) => {
     const text: string | undefined =
       message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
     if (!from || !text) return;
+    if (from.endsWith('@g.us') || from.includes('-')) {
+      console.log('[webhook meta] mensagem de grupo ignorada');
+      return;
+    }
 
     const phoneNumberIdRecebedor: string | undefined = value?.metadata?.phone_number_id;
 
@@ -505,6 +509,10 @@ app.post('/webhook/zapi', async (req, res) => {
   try {
     const body = req.body ?? {};
     if (body.fromMe === true) return; // ignora ecos de mensagens enviadas por nós
+    if (body.isGroup === true || body.participantPhone) {
+      console.log('[webhook zapi] mensagem de grupo ignorada');
+      return;
+    }
 
     const instanceId: string | undefined = body.instanceId;
     const from: string | undefined = body.phone;
