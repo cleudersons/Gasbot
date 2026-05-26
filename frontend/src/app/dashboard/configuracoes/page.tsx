@@ -436,6 +436,29 @@ export default function ConfiguracoesPage() {
         </div>
 
         <div>
+          <p className="font-semibold mb-2 text-sm">Chave Pix do depósito <span className="text-gray-400 font-normal">(opcional)</span></p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field
+              label="Chave Pix"
+              placeholder="11999998888, CPF, e-mail ou chave aleatória"
+              value={promptConfig.pix_chave ?? ''}
+              onChange={(v) => setField('pix_chave', v)}
+            />
+            <Field
+              label="Nome do titular"
+              placeholder="João da Silva"
+              value={promptConfig.pix_titular ?? ''}
+              onChange={(v) => setField('pix_titular', v)}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Quando o cliente pedir a chave Pix, a atendente envia o nome do titular numa
+            mensagem e a chave sozinha em outra — assim o cliente segura a mensagem no
+            WhatsApp e copia em um toque.
+          </p>
+        </div>
+
+        <div>
           <p className="font-semibold mb-2 text-sm">Tom de atendimento</p>
           <div className="space-y-2">
             {(

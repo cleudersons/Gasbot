@@ -12,6 +12,8 @@ export interface PromptConfig {
   produtos: string;           // multi-linha, um produto por linha
   area_entrega: string;       // ex.: Centro, Jardim das Palmeiras, Vila Nova
   brinde: string;             // opcional
+  pix_chave?: string;         // ex.: 11999998888, cpf, e-mail, ou aleatória
+  pix_titular?: string;       // nome do titular da conta que recebe
   tom: Tom;
 }
 
@@ -48,6 +50,10 @@ FLUXO OBRIGATÓRIO DO PEDIDO (siga rigorosamente):
    o que está faltando. NUNCA assuma o bairro, NUNCA infira pelo nome
    da rua, NUNCA prossiga sem o bairro. Exemplo: se o cliente disser
    apenas "Rua das Flores, 134", responda: "E qual o bairro?".
+   COMO IDENTIFICAR O BAIRRO: aceite formas livres —
+   "bairro Tibery", "no bairro Centro", "Rua B 235 Tibery" (último termo
+   após o número), "Rua B, 235, Tibery". Exemplo: "Rua B 235 bairro tibery"
+   → rua="Rua B", número="235", bairro="Tibery". NÃO pergunte de novo.
 3. Pergunte a FORMA DE PAGAMENTO (dinheiro, cartão crédito, cartão débito, Pix, vale).
 4. Confirme com um resumo curto incluindo os 3 componentes do endereço:
    "{produto} x{qtd}, entrega em {rua}, {número}, {bairro}, pagamento {forma}. Posso confirmar?"
@@ -73,16 +79,17 @@ NOME_CLIENTE:{primeiro_nome}
 - Se o cliente ignorar/recusar dizer o nome, NÃO emita o token.
 - Se [CLIENTE: nome=X] já existir, PULE essa pergunta e use X naturalmente.
 
-LEMBRETE DE RECOMPRA (2 etapas):
-- Etapa 1: "Posso agendar um lembrete para sua próxima recarga?"
-- Etapa 2 (se sim):
-  * Se houver marca [CLIENTE: ... dias_recarga=X ...] no início da mensagem,
-    pergunte: "Da última vez você pediu lembrete para X dias. Quer o mesmo?"
-    Confirmação → LEMBRETE_CONFIRMADO:X
-  * Caso contrário, pergunte: "Em quantos dias você costuma precisar recarregar?"
+LEMBRETE DE RECOMPRA:
+- CLIENTE RECORRENTE (marca [CLIENTE: ...] contém dias_recarga=X e total_pedidos>=1):
+  NÃO pergunte nada. Agende automaticamente com base na frequência conhecida.
+  Logo após PEDIDO_CONFIRMADO + confirmação, emita na primeira linha:
+  LEMBRETE_CONFIRMADO:X
+  E na linha seguinte agradeça: "Já agendei seu próximo lembrete em X dias, como das outras vezes."
+- CLIENTE NOVO (sem dias_recarga):
+  * Etapa 1: "Posso agendar um lembrete para sua próxima recarga?"
+  * Etapa 2 (se sim): "Em quantos dias você costuma precisar recarregar?"
     Interprete "20 dias", "3 semanas" (21), "um mês" (30), "não sei" (30).
     Responda começando EXATAMENTE com: LEMBRETE_CONFIRMADO:{dias}
-- Em ambos os casos, na linha seguinte agradeça brevemente.
 - Se o cliente recusar lembrete, NÃO emita o token.
 
 PEDIDO ATIVO — consulta de status:
@@ -93,6 +100,18 @@ CONTATAR_ENTREGADOR:{entregador_whatsapp}
   E na linha seguinte tranquilize: "Já avisei o entregador pra confirmar o status. Aguarda só um instante!"
 - Se pode_contatar_entregador=false, NÃO emita o token; responda: "Já estou em contato com o entregador, ele vai responder em instantes."
 - Se entregador_whatsapp estiver vazio, NUNCA emita o token.
+
+CHAVE PIX (quando configurada):
+- Se a configuração trouxer um bloco "CHAVE PIX:" com a chave e o titular, e o cliente perguntar a chave Pix ("qual a chave pix?", "manda o pix", "qual o valor e a chave pix por favor"), responda em DUAS mensagens curtas separadas:
+  Mensagem 1 (contexto): informe rapidamente o titular e, se o cliente perguntou também o valor, o valor a pagar. Ex.: "Claro! A chave está no nome de {titular}. Valor: R$ X,XX."
+  Mensagem 2 (só a chave): envie a chave Pix SOZINHA, sem nenhum outro texto, sem aspas, sem markdown, sem emoji — apenas a chave em uma linha. Isso facilita o cliente segurar a mensagem no WhatsApp e copiar.
+- Para emitir as duas mensagens, separe-as com a marca exata em uma linha:
+[NOVA_MENSAGEM]
+  Exemplo de resposta completa do agente:
+  Claro! A chave está no nome de João Silva.
+  [NOVA_MENSAGEM]
+  11999998888
+- Nunca invente uma chave Pix. Se não houver bloco "CHAVE PIX:" configurado, diga que o pagamento em Pix é feito direto com o entregador na entrega.
 
 FORA DO HORÁRIO:
 - Se a mensagem do usuário começar com [SISTEMA: fora do horário (HH:MM-HH:MM)...],
@@ -126,6 +145,8 @@ export function buildPrompt(c: PromptConfig): string {
   const produtos = listaProdutos(c.produtos || '');
   const area = c.area_entrega?.trim() || '';
   const brinde = c.brinde?.trim() || '';
+  const pixChave = c.pix_chave?.trim() || '';
+  const pixTitular = c.pix_titular?.trim() || '';
   const tom = DESCRICAO_TOM[c.tom] ?? DESCRICAO_TOM.simpatico;
 
   const partes: string[] = [];
@@ -178,6 +199,21 @@ export function buildPrompt(c: PromptConfig): string {
       'Aceitamos dinheiro, cartão de crédito, cartão de débito, Pix e vale. O entregador sempre leva maquininha.',
     ),
   );
+
+  if (pixChave) {
+    partes.push(
+      bloco(
+        'CHAVE PIX:',
+        [
+          `Chave: ${pixChave}`,
+          pixTitular ? `Titular: ${pixTitular}` : '',
+          'Quando o cliente pedir a chave Pix, siga a regra "CHAVE PIX" do bloco técnico: envie em duas mensagens (uma de contexto e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp).',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      ),
+    );
+  }
 
   partes.push(bloco('TOM E COMPORTAMENTO:', tom));
 

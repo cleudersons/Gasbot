@@ -449,7 +449,14 @@ async function processarMensagemRecebida(
     }
 
     if (mensagemCliente) {
-      await whatsappService.sendMessage(agenciaId, from, mensagemCliente);
+      // Suporta múltiplas mensagens separadas por [NOVA_MENSAGEM] (ex.: enviar chave Pix sozinha)
+      const partes = mensagemCliente
+        .split(/\[NOVA_MENSAGEM\]/i)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      for (const parte of partes) {
+        await whatsappService.sendMessage(agenciaId, from, parte);
+      }
     }
     console.log(`[webhook] Resposta enviada para ${from}`);
   } catch (err: any) {
