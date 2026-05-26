@@ -26,15 +26,13 @@ export function useVagasFundador(inicial?: Partial<Vagas>): Vagas {
 
     async function refetch() {
       try {
-        const { data } = await supabase
-          .from('programa_fundador_config')
-          .select('vagas_total, vagas_usadas, ativo')
-          .eq('ativo', true)
-          .maybeSingle();
-        if (cancelado || !data) return;
+        const res = await fetch('/api/fundador/vagas', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelado) return;
         setV({
           vagas_total: data.vagas_total ?? 0,
-          vagas_restantes: Math.max(0, (data.vagas_total ?? 0) - (data.vagas_usadas ?? 0)),
+          vagas_restantes: data.vagas_restantes ?? 0,
           ativo: !!data.ativo,
         });
       } catch {
