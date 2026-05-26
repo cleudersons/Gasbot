@@ -1,6 +1,6 @@
 import { auth, signOut } from '@/lib/auth';
 import Link from 'next/link';
-import { Building2, BarChart3, Settings, LogOut, CreditCard } from 'lucide-react';
+import { Building2, BarChart3, Settings, LogOut, CreditCard, Bell, Crown } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +19,8 @@ export default async function MasterLayout({ children }: { children: React.React
           <MasterLink href="/master" icon={<Building2 size={18} />} label="Agências" />
           <MasterLink href="/master/planos" icon={<CreditCard size={18} />} label="Planos" />
           <MasterLink href="/master/metricas" icon={<BarChart3 size={18} />} label="Métricas" />
+          <MasterLink href="/master/notificacoes" icon={<Bell size={18} />} label="Notificações" />
+          <MasterLink href="/master/fundador-feedback" icon={<Crown size={18} />} label="Fundadores" />
           <MasterLink href="/master/configuracoes" icon={<Settings size={18} />} label="Configurações" />
         </nav>
 

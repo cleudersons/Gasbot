@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Circle, MessageSquareText, Users, Plug, FlaskConical, Copy } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PopupCampanhaFundador from './PopupCampanhaFundador';
 
 interface Status {
   passos: {
@@ -52,6 +53,7 @@ export default function InicioPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      <PopupCampanhaFundador />
       <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6">
         <h1 className="text-2xl font-bold mb-1">🎉 Bem-vindo ao SutoGas!</h1>
         <p className="text-gray-700 text-sm">

@@ -50,6 +50,7 @@ import './jobs/entrega.job';
 import './jobs/relatorio.job';
 import './jobs/agendamento.job';
 import './jobs/lembrete.job';
+import './jobs/fundador-feedback.job';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;

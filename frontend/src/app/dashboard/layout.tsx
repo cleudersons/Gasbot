@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import TrialBanner from '@/components/TrialBanner';
 import Logo from '@/components/Logo';
+import HeaderActions from '@/components/HeaderActions';
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,7 @@ export default async function DashboardLayout({
   let conexaoOk = false;
   let mostrarInicio = false;
   let passosCompletos = 1; // conta criada
+  let ehFundador = false;
 
   if (agenciaId) {
     const db = supabaseAdmin();
@@ -39,7 +41,7 @@ export default async function DashboardLayout({
       db
         .from('agencias')
         .select(
-          'status_conta, trial_inicio, trial_atendimentos, prompt_customizado, provider, criado_em',
+          'status_conta, trial_inicio, trial_atendimentos, prompt_customizado, provider, criado_em, programa_fundador',
         )
         .eq('id', agenciaId)
         .maybeSingle(),
@@ -56,6 +58,7 @@ export default async function DashboardLayout({
       trialAtendimentos = ag.trial_atendimentos ?? 0;
       promptOk = !!ag.prompt_customizado && ag.prompt_customizado.trim().length > 0;
       conexaoOk = !!ag.provider && ag.provider !== 'demo';
+      ehFundador = !!ag.programa_fundador;
 
       const inicio = ag.trial_inicio ? new Date(ag.trial_inicio).getTime() : Date.now();
       const dias = (Date.now() - inicio) / (24 * 60 * 60 * 1000);
@@ -125,7 +128,7 @@ export default async function DashboardLayout({
         />
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Painel SutoGas</h2>
-          <span className="text-sm text-gray-600">👤 {userName}</span>
+          <HeaderActions ehFundador={ehFundador} userName={userName} />
         </header>
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>

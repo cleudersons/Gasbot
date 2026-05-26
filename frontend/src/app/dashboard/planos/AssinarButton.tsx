@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Crown, Check } from 'lucide-react';
 import Modal from '@/components/Modal';
 import TermoFundador from './TermoFundador';
+import { useVagasFundador } from '@/lib/useVagasFundador';
 
 interface Props {
   planoNome: string;
@@ -34,6 +35,7 @@ export default function AssinarButton({
   const [openTermo, setOpenTermo] = useState(false);
   const [aceito, setAceito] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const vagas = useVagasFundador({ vagas_total: vagasTotal, vagas_restantes: vagasRestantes });
 
   function handleClick() {
     if (!fundadorDisponivel || !urlFundador) {
@@ -74,13 +76,13 @@ export default function AssinarButton({
             <div className="text-sm">
               <p className="font-semibold text-amber-900">Você foi contemplado!</p>
               <p className="text-amber-800 mt-1">
-                Estamos selecionando <strong>{vagasTotal} contatos</strong> para
+                Estamos selecionando <strong>{vagas.vagas_total} contatos</strong> para
                 participar do programa <strong>Premium Fundador</strong>:
                 <br />
                 <strong>50% de desconto + suporte prioritário por 12 meses</strong>.
               </p>
               <p className="text-amber-700 text-xs mt-2">
-                Restam {vagasRestantes} de {vagasTotal} vagas.
+                Restam {vagas.vagas_restantes} de {vagas.vagas_total} vagas.
               </p>
             </div>
           </div>
