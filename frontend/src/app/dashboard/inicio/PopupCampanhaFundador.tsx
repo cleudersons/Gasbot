@@ -86,7 +86,7 @@ export default function PopupCampanhaFundador() {
 
           <div className="flex flex-col sm:flex-row gap-2 pt-1">
             <Link
-              href="/dashboard/planos"
+              href="/dashboard/programa-fundador"
               onClick={fechar}
               className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 rounded-lg transition"
             >
