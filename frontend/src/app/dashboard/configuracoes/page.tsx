@@ -11,6 +11,7 @@ import {
   PromptModo,
   personaPadrao,
 } from '@/lib/prompt-builder';
+import HistoricoPrompt from './HistoricoPrompt';
 
 interface Agencia {
   id: string;
@@ -34,6 +35,7 @@ export default function ConfiguracoesPage() {
   const [promptModo, setPromptModo] = useState<PromptModo>('form');
   const [textoLivre, setTextoLivre] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [historicoOpen, setHistoricoOpen] = useState(false);
 
   const [whatsappDono, setWhatsappDono] = useState('');
   const [frequencia, setFrequencia] = useState('diario');
@@ -372,6 +374,12 @@ export default function ConfiguracoesPage() {
               >
                 Ver como ficou o prompt
               </button>
+              <button
+                onClick={() => setHistoricoOpen(true)}
+                className="bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm"
+              >
+                📜 Histórico
+              </button>
             </div>
           </div>
         )}
@@ -678,6 +686,12 @@ export default function ConfiguracoesPage() {
       </section>
 
       {msg && <div className="text-sm text-gray-700">{msg}</div>}
+
+      <HistoricoPrompt
+        isOpen={historicoOpen}
+        onClose={() => setHistoricoOpen(false)}
+        onRestaurou={fetchAll}
+      />
 
       <Modal
         isOpen={previewOpen}
