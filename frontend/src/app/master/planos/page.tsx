@@ -16,6 +16,7 @@ interface PlanoItem {
   duracao_dias: number;
   fundador: boolean;
   ativo: boolean;
+  publico: boolean;
 }
 
 const CAT_STYLES: Record<string, string> = {
@@ -56,6 +57,7 @@ export default function MasterPlanosPage() {
   const [duracao, setDuracao] = useState('30');
   const [fundador, setFundador] = useState(false);
   const [ativo, setAtivo] = useState(true);
+  const [publico, setPublico] = useState(true);
   const [descricao, setDescricao] = useState('');
 
   const load = useCallback(async () => {
@@ -88,6 +90,7 @@ export default function MasterPlanosPage() {
     setDuracao('30');
     setFundador(false);
     setAtivo(true);
+    setPublico(true);
     setDescricao('');
     setError(null);
     setModalOpen(true);
@@ -104,6 +107,7 @@ export default function MasterPlanosPage() {
     setDuracao(String(p.duracao_dias));
     setFundador(p.fundador);
     setAtivo(p.ativo);
+    setPublico(p.publico);
     setDescricao(p.descricao ?? '');
     setError(null);
     setModalOpen(true);
@@ -124,6 +128,7 @@ export default function MasterPlanosPage() {
         duracao_dias: Number(duracao),
         fundador,
         ativo,
+        publico,
       };
       const url = editing ? `/api/master/planos/${editing.id}` : '/api/master/planos';
       const method = editing ? 'PUT' : 'POST';
@@ -198,6 +203,7 @@ export default function MasterPlanosPage() {
                 <th className="px-4 py-2 font-medium">Limite</th>
                 <th className="px-4 py-2 font-medium">Duração</th>
                 <th className="px-4 py-2 font-medium">Fundador</th>
+                <th className="px-4 py-2 font-medium">Visibilidade</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Ações</th>
               </tr>
@@ -216,6 +222,13 @@ export default function MasterPlanosPage() {
                   <td className="px-4 py-2">{p.limite_atendimentos ?? 'ilimitado'}</td>
                   <td className="px-4 py-2">{p.duracao_dias}d</td>
                   <td className="px-4 py-2">{p.fundador ? '👑' : '—'}</td>
+                  <td className="px-4 py-2">
+                    {p.publico ? (
+                      <span className="text-xs font-medium text-blue-700">público</span>
+                    ) : (
+                      <span className="text-xs font-medium text-gray-500">oculto</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2">
                     {p.ativo ? (
                       <span className="text-green-700 text-xs font-medium">ativo</span>
@@ -243,7 +256,7 @@ export default function MasterPlanosPage() {
               ))}
               {planos.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                     Nenhum plano cadastrado.
                   </td>
                 </tr>
@@ -352,7 +365,7 @@ export default function MasterPlanosPage() {
             />
           </div>
 
-          <div className="flex items-center gap-4 pt-1">
+          <div className="flex flex-wrap items-center gap-4 pt-1">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -370,6 +383,20 @@ export default function MasterPlanosPage() {
                 className="h-4 w-4 accent-orange-500"
               />
               <span>Ativo</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={publico}
+                onChange={(e) => setPublico(e.target.checked)}
+                className="h-4 w-4 accent-blue-600"
+              />
+              <span>
+                Visível em /dashboard/planos{' '}
+                <span className="text-xs text-gray-500">
+                  (desmarque para vender só por link direto)
+                </span>
+              </span>
             </label>
           </div>
 

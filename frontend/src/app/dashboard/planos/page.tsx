@@ -6,19 +6,32 @@ import AssinarButton from './AssinarButton';
 const CHECKOUT_BASE =
   process.env.NEXT_PUBLIC_CHECKOUT_BASE ?? 'https://pay.sutofly.com/checkout.php';
 
-function checkoutUrl(
-  oferta: string,
-  agenciaId: string,
-  email: string,
-  jaAssinante: boolean,
-) {
+interface PlanoRow {
+  id: string;
+  slug: string;
+  nome: string;
+  descricao: string | null;
+  categoria: 'basico' | 'pro';
+  preco_normal: number | null;
+  limite_atendimentos: number | null;
+  duracao_dias: number;
+  fundador: boolean;
+}
+
+// Features fixas por categoria (não estão na tabela ainda; futuro: coluna features JSONB)
+const FEATURES_POR_CATEGORIA: Record<'basico' | 'pro', string[]> = {
+  basico: ['1 número WhatsApp', 'Z-API ou Meta API', 'Suporte prioritário'],
+  pro: ['Até 3 números WhatsApp', 'Z-API ou Meta API', 'Relatórios avançados'],
+};
+
+function formatPreco(v: number | null): string {
+  if (v == null) return '—';
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function checkoutUrl(oferta: string, agenciaId: string, email: string, jaAssinante: boolean) {
   const modo = jaAssinante ? '1clickupgrade' : '1click';
-  const params = new URLSearchParams({
-    o: oferta,
-    m: modo,
-    agencia_id: agenciaId,
-    email,
-  });
+  const params = new URLSearchParams({ o: oferta, m: modo, agencia_id: agenciaId, email });
   return `${CHECKOUT_BASE}?${params.toString()}`;
 }
 
@@ -29,11 +42,11 @@ export default async function PlanosPage() {
 
   const db = supabaseAdmin();
 
-  const [{ data: ag }, { data: cfg }] = await Promise.all([
+  const [{ data: ag }, { data: cfg }, { data: planosRows }] = await Promise.all([
     agenciaId
       ? db
           .from('agencias')
-          .select('plano, status_conta, programa_fundador, fundador_desconto_ate')
+          .select('plano, plano_slug, status_conta, programa_fundador, fundador_desconto_ate')
           .eq('id', agenciaId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -42,9 +55,19 @@ export default async function PlanosPage() {
       .select('vagas_total, vagas_usadas, ativo')
       .eq('ativo', true)
       .maybeSingle(),
+    db
+      .from('planos')
+      .select('*')
+      .eq('ativo', true)
+      .eq('publico', true)
+      .order('fundador', { ascending: true })
+      .order('categoria', { ascending: true })
+      .order('preco_normal', { ascending: true }),
   ]);
 
+  const planos = (planosRows as PlanoRow[] | null) ?? [];
   const planoAtual = ag?.plano ?? 'trial';
+  const planoSlugAtual = ag?.plano_slug ?? null;
   const jaAssinante = !!ag && planoAtual !== 'trial' && ag.status_conta === 'ativo';
   const ehFundador = !!ag?.programa_fundador;
 
@@ -54,38 +77,13 @@ export default async function PlanosPage() {
     : 0;
   const fundadorDisponivel = !!cfg?.ativo && vagasRestantes > 0;
 
-  const planos = [
-    {
-      key: 'trial',
-      nome: 'Trial',
-      preco: 'Grátis',
-      detalhe: '7 dias OU 20 atendimentos',
-      features: ['Número demo', 'IA completa', 'Sem cartão'],
-      oferta: null as string | null,
-      ofertaFundador: null as string | null,
-      precoFundador: null as string | null,
-    },
-    {
-      key: 'basico',
-      nome: 'Básico',
-      preco: 'R$ 247',
-      precoFundador: 'R$ 123,50',
-      detalhe: 'por mês · 200 atendimentos',
-      features: ['1 número WhatsApp', 'Z-API ou Meta API', 'Suporte prioritário'],
-      oferta: 'sutogasbasico',
-      ofertaFundador: 'sutogaspremiumfundador',
-    },
-    {
-      key: 'pro',
-      nome: 'Pro',
-      preco: 'R$ 447',
-      precoFundador: 'R$ 223,50',
-      detalhe: 'por mês · atendimentos ilimitados',
-      features: ['Até 3 números WhatsApp', 'Z-API ou Meta API', 'Relatórios avançados'],
-      oferta: 'sutogaspro',
-      ofertaFundador: 'sutogaspremiupro',
-    },
-  ];
+  // Separa normais x fundadores. Para cada normal, tenta achar o fundador equivalente
+  // pela mesma categoria (basico fundador para basico normal, pro fundador para pro normal).
+  const normais = planos.filter((p) => !p.fundador);
+  const fundadores = planos.filter((p) => p.fundador);
+  function fundadorPara(categoria: 'basico' | 'pro'): PlanoRow | undefined {
+    return fundadores.find((f) => f.categoria === categoria);
+  }
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -111,77 +109,70 @@ export default async function PlanosPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {planos.map((p) => {
-          const atual = planoAtual === p.key;
-          // Já é fundador: preço com desconto + checkout direto na oferta fundador, sem popup
-          const usarPrecoFundador = ehFundador && !!p.precoFundador;
+        {/* Trial fixo */}
+        <PlanoCard
+          atual={planoAtual === 'trial'}
+          nome="Trial"
+          preco="Grátis"
+          detalhe="7 dias OU 20 atendimentos"
+          features={['Número demo', 'IA completa', 'Sem cartão']}
+          botao={
+            <button
+              disabled
+              className="block w-full text-center bg-gray-100 text-gray-500 font-medium py-2 rounded-lg cursor-not-allowed"
+            >
+              {planoAtual === 'trial' ? 'Plano atual' : 'Indisponível'}
+            </button>
+          }
+        />
+
+        {/* Planos dinâmicos */}
+        {normais.map((p) => {
+          const fundador = fundadorPara(p.categoria);
+          const precoNormal = formatPreco(p.preco_normal);
+          const precoFundador = fundador ? formatPreco(fundador.preco_normal) : null;
 
           const urlNormal =
-            agenciaId && email && p.oferta
-              ? checkoutUrl(p.oferta, agenciaId, email, jaAssinante)
-              : '';
+            agenciaId && email ? checkoutUrl(p.slug, agenciaId, email, jaAssinante) : '';
           const urlFundador =
-            agenciaId && email && p.ofertaFundador
-              ? checkoutUrl(p.ofertaFundador, agenciaId, email, jaAssinante)
+            fundador && agenciaId && email
+              ? checkoutUrl(fundador.slug, agenciaId, email, jaAssinante)
               : '';
+
+          // Plano atual: bate por slug exato, ou (legado) pela categoria com slug nulo
+          const atual =
+            planoSlugAtual === p.slug ||
+            planoSlugAtual === fundador?.slug ||
+            (!planoSlugAtual && planoAtual === p.categoria);
+
+          // Preço exibido: se já é fundador e há fundador equivalente, mostra com desconto
+          const usarPrecoFundador = ehFundador && !!fundador;
 
           return (
-            <div
-              key={p.key}
-              className={`bg-white border rounded-2xl p-6 flex flex-col ${
-                atual
-                  ? 'border-orange-500 ring-2 ring-orange-200'
-                  : 'border-gray-200'
-              }`}
-            >
-              <div className="flex items-baseline justify-between">
-                <h3 className="text-lg font-bold">{p.nome}</h3>
-                {atual && (
-                  <span className="text-xs uppercase tracking-wide bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">
-                    Atual
-                  </span>
-                )}
-              </div>
-              <div className="mt-3">
-                {usarPrecoFundador && p.precoFundador ? (
-                  <div>
-                    <span className="text-3xl font-bold">{p.precoFundador}</span>
-                    <span className="ml-2 text-sm text-gray-400 line-through">
-                      {p.preco}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-3xl font-bold">{p.preco}</span>
-                )}
-                <p className="text-sm text-gray-600 mt-1">{p.detalhe}</p>
-              </div>
-
-              <ul className="mt-4 space-y-2 text-sm flex-1">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check size={16} className="text-green-600 mt-0.5 shrink-0" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-5">
-                {!p.oferta ? (
+            <PlanoCard
+              key={p.id}
+              atual={atual}
+              nome={p.nome}
+              preco={usarPrecoFundador && precoFundador ? precoFundador : precoNormal}
+              precoRiscado={usarPrecoFundador ? precoNormal : undefined}
+              detalhe={
+                p.descricao ??
+                `por ${p.duracao_dias} dias · ${
+                  p.limite_atendimentos == null
+                    ? 'atendimentos ilimitados'
+                    : `${p.limite_atendimentos} atendimentos`
+                }`
+              }
+              features={FEATURES_POR_CATEGORIA[p.categoria]}
+              botao={
+                !urlNormal ? (
                   <button
                     disabled
                     className="block w-full text-center bg-gray-100 text-gray-500 font-medium py-2 rounded-lg cursor-not-allowed"
                   >
                     {atual ? 'Plano atual' : 'Indisponível'}
                   </button>
-                ) : !urlNormal ? (
-                  <button
-                    disabled
-                    className="block w-full text-center bg-gray-100 text-gray-500 font-medium py-2 rounded-lg cursor-not-allowed"
-                  >
-                    Indisponível
-                  </button>
                 ) : ehFundador ? (
-                  // Já é fundador → direto na oferta com desconto, sem popup
                   <a
                     href={urlFundador || urlNormal}
                     className="block w-full text-center bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg transition"
@@ -191,22 +182,83 @@ export default async function PlanosPage() {
                 ) : (
                   <AssinarButton
                     planoNome={p.nome}
-                    precoNormal={p.preco}
-                    precoFundador={p.precoFundador ?? p.preco}
+                    precoNormal={precoNormal}
+                    precoFundador={precoFundador ?? precoNormal}
                     urlNormal={urlNormal}
                     urlFundador={urlFundador}
-                    ofertaFundador={p.ofertaFundador ?? ''}
-                    fundadorDisponivel={fundadorDisponivel && !!p.ofertaFundador}
+                    ofertaFundador={fundador?.slug ?? ''}
+                    fundadorDisponivel={fundadorDisponivel && !!fundador}
                     jaAssinante={jaAssinante}
                     vagasRestantes={vagasRestantes}
                     vagasTotal={vagasTotal}
                   />
-                )}
-              </div>
-            </div>
+                )
+              }
+            />
           );
         })}
       </div>
+
+      {normais.length === 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-sm text-gray-600">
+          Nenhum plano público disponível no momento. Entre em contato para mais informações.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanoCard({
+  atual,
+  nome,
+  preco,
+  precoRiscado,
+  detalhe,
+  features,
+  botao,
+}: {
+  atual: boolean;
+  nome: string;
+  preco: string;
+  precoRiscado?: string;
+  detalhe: string;
+  features: string[];
+  botao: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`bg-white border rounded-2xl p-6 flex flex-col ${
+        atual ? 'border-orange-500 ring-2 ring-orange-200' : 'border-gray-200'
+      }`}
+    >
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-lg font-bold">{nome}</h3>
+        {atual && (
+          <span className="text-xs uppercase tracking-wide bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full font-semibold">
+            Atual
+          </span>
+        )}
+      </div>
+      <div className="mt-3">
+        <div>
+          <span className="text-3xl font-bold">{preco}</span>
+          {precoRiscado && (
+            <span className="ml-2 text-sm text-gray-400 line-through">{precoRiscado}</span>
+          )}
+        </div>
+        <p className="text-sm text-gray-600 mt-1">{detalhe}</p>
+      </div>
+
+      <ul className="mt-4 space-y-2 text-sm flex-1">
+        {features.map((f) => (
+          <li key={f} className="flex items-start gap-2">
+            <Check size={16} className="text-green-600 mt-0.5 shrink-0" />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-5">{botao}</div>
     </div>
   );
 }

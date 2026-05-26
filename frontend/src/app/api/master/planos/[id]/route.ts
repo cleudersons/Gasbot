@@ -39,6 +39,7 @@ export async function PUT(
   }
   if (body?.fundador !== undefined) patch.fundador = !!body.fundador;
   if (body?.ativo !== undefined) patch.ativo = !!body.ativo;
+  if (body?.publico !== undefined) patch.publico = !!body.publico;
 
   const { data, error } = await supabaseAdmin()
     .from('planos')

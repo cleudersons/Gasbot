@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   const preco = body?.preco_normal != null ? Number(body.preco_normal) : null;
   const fundador = !!body?.fundador;
   const ativo = body?.ativo !== false;
+  const publico = body?.publico !== false;
   const descricao = body?.descricao ? body.descricao.toString() : null;
 
   if (!slug || !nome) {
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       duracao_dias: duracao,
       fundador,
       ativo,
+      publico,
     })
     .select('*')
     .single();
