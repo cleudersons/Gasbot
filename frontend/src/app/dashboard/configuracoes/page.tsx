@@ -420,6 +420,30 @@ export default function ConfiguracoesPage() {
               value={promptConfig.area_entrega}
               onChange={(v) => setField('area_entrega', v)}
             />
+            <Field
+              label="Marca(s) do gás"
+              placeholder="Supergasbras Dourado, Liquigás, Ultragaz"
+              value={promptConfig.marca_gas ?? ''}
+              onChange={(v) => setField('marca_gas', v)}
+            />
+            <p className="text-xs text-gray-500 -mt-2">
+              Quando o cliente perguntar a marca do gás, a atendente vai responder com o que estiver aqui.
+            </p>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Taxa de entrega <span className="text-gray-400">(opcional)</span>
+              </label>
+              <textarea
+                value={promptConfig.taxa_entrega ?? ''}
+                onChange={(e) => setField('taxa_entrega', e.target.value)}
+                rows={2}
+                placeholder="Ex.: Taxa de entrega de R$ 15 para pedidos referentes ao programa Gás do Povo."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Descreva o valor e em quais casos se aplica. A atendente soma no resumo do pedido.
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium mb-1">
                 Alguma promoção ou brinde? <span className="text-gray-400">(opcional)</span>

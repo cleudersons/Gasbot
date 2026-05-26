@@ -14,6 +14,8 @@ export interface PromptConfig {
   brinde: string;             // opcional
   pix_chave?: string;         // ex.: 11999998888, cpf, e-mail, ou aleatória
   pix_titular?: string;       // nome do titular da conta que recebe
+  marca_gas?: string;         // ex.: Supergasbras Dourado, Liquigás, Ultragaz
+  taxa_entrega?: string;      // ex.: R$ 15 — programa Gás do Povo
   tom: Tom;
 }
 
@@ -147,6 +149,8 @@ export function buildPrompt(c: PromptConfig): string {
   const brinde = c.brinde?.trim() || '';
   const pixChave = c.pix_chave?.trim() || '';
   const pixTitular = c.pix_titular?.trim() || '';
+  const marcaGas = c.marca_gas?.trim() || '';
+  const taxaEntrega = c.taxa_entrega?.trim() || '';
   const tom = DESCRICAO_TOM[c.tom] ?? DESCRICAO_TOM.simpatico;
 
   const partes: string[] = [];
@@ -199,6 +203,32 @@ export function buildPrompt(c: PromptConfig): string {
       'Aceitamos dinheiro, cartão de crédito, cartão de débito, Pix e vale. O entregador sempre leva maquininha.',
     ),
   );
+
+  if (marcaGas) {
+    partes.push(
+      bloco(
+        'MARCA(S) DO GÁS:',
+        [
+          `Marcas que trabalhamos: ${marcaGas}.`,
+          'Se o cliente perguntar a marca do gás ("qual a marca do gás?", "que marca vocês trabalham?"), responda exatamente com essas marcas, de forma natural.',
+          'Se houver mais de uma marca, mencione todas. Não invente marcas além das listadas.',
+        ].join('\n'),
+      ),
+    );
+  }
+
+  if (taxaEntrega) {
+    partes.push(
+      bloco(
+        'TAXA DE ENTREGA:',
+        [
+          `Detalhes da taxa: ${taxaEntrega}.`,
+          'Se houver uma taxa, informe espontaneamente no resumo do pedido (passo 7), somando ao valor total.',
+          'Se o cliente perguntar antes ("tem taxa de entrega?", "quanto fica a entrega?"), informe naturalmente esse valor e em quais casos se aplica.',
+        ].join('\n'),
+      ),
+    );
+  }
 
   if (pixChave) {
     partes.push(
