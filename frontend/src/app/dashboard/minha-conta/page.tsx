@@ -53,6 +53,22 @@ export default async function MinhaContaPage() {
   const diasTrial = ehTrial ? diasRestantes(trialFim) : null;
   const diasVencimento = !ehTrial ? diasRestantes(ag?.vencimento_plano) : null;
 
+  // Contagem de pedidos confirmados nos últimos 30 dias (plano pago)
+  // ou desde o início do trial (trial). Usado para mostrar uso vs limite.
+  let pedidosUsados = 0;
+  if (agenciaId) {
+    const desde = ehTrial && ag?.trial_inicio
+      ? new Date(ag.trial_inicio).toISOString()
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await db
+      .from('pedidos')
+      .select('id', { count: 'exact', head: true })
+      .eq('agencia_id', agenciaId)
+      .neq('status', 'cancelado')
+      .gte('criado_em', desde);
+    pedidosUsados = count ?? 0;
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -107,13 +123,13 @@ export default async function MinhaContaPage() {
             />
           )}
           <Field
-            label="Atendimentos"
+            label={ehTrial ? 'Pedidos no trial' : 'Pedidos no mês'}
             value={
               ehTrial
-                ? `${ag?.trial_atendimentos ?? 0} / 20 (trial)`
+                ? `${pedidosUsados} / 20`
                 : ag?.limite_atendimentos == null
-                  ? `${ag?.trial_atendimentos ?? 0} usados · ilimitado`
-                  : `${ag?.trial_atendimentos ?? 0} / ${ag.limite_atendimentos}`
+                  ? `${pedidosUsados} pedidos · ilimitado`
+                  : `${pedidosUsados} / ${ag.limite_atendimentos}`
             }
           />
           {!ehTrial && (

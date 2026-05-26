@@ -10,6 +10,13 @@ export type PedidoStatus =
   | 'entregue_nao_confirmado'
   | 'cancelado';
 
+export interface PedidoItem {
+  produto: string;
+  quantidade: number;
+  preco_unit?: number | null;
+  subtotal?: number | null;
+}
+
 export interface Pedido {
   id: string;
   agencia_id: string;
@@ -24,6 +31,8 @@ export interface Pedido {
   status_auto?: boolean;
   status_atualizado_em?: string | null;
   entregador_id?: string | null;
+  itens?: PedidoItem[] | null;
+  valor_total?: number | null;
 }
 
 export async function salvarPedido(
@@ -32,7 +41,13 @@ export async function salvarPedido(
   produto: string,
   quantidade: number,
   endereco: string,
-  opts: { status?: PedidoStatus; agendadoPara?: Date; formaPagamento?: string | null } = {},
+  opts: {
+    status?: PedidoStatus;
+    agendadoPara?: Date;
+    formaPagamento?: string | null;
+    itens?: PedidoItem[] | null;
+    valorTotal?: number | null;
+  } = {},
 ): Promise<Pedido> {
   const maps_link = `https://maps.google.com/?q=${encodeURIComponent(endereco)}`;
 
@@ -47,6 +62,8 @@ export async function salvarPedido(
   };
   if (opts.agendadoPara) insert.agendado_para = opts.agendadoPara.toISOString();
   if (opts.formaPagamento) insert.forma_pagamento = opts.formaPagamento;
+  if (opts.itens && opts.itens.length > 0) insert.itens = opts.itens;
+  if (opts.valorTotal != null) insert.valor_total = opts.valorTotal;
 
   const { data, error } = await getSupabase()
     .from('pedidos')
@@ -165,6 +182,25 @@ export async function marcarContatoEntregador(pedidoId: string): Promise<void> {
     .update({ ultimo_contato_entregador: new Date().toISOString() })
     .eq('id', pedidoId);
   if (error) console.error('[pedido] erro ao marcar contato entregador:', error.message);
+}
+
+/**
+ * Conta pedidos confirmados (status ≠ cancelado) da agência nos últimos 30 dias.
+ * Usado pelo enforcement do limite mensal do plano.
+ */
+export async function contarPedidosUltimos30Dias(agenciaId: string): Promise<number> {
+  const trintaDias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { count, error } = await getSupabase()
+    .from('pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('agencia_id', agenciaId)
+    .neq('status', 'cancelado')
+    .gte('criado_em', trintaDias);
+  if (error) {
+    console.error('[pedido] erro ao contar mês:', error.message);
+    return 0;
+  }
+  return count ?? 0;
 }
 
 export async function buscarPedidosPendentes(agenciaId: string): Promise<Pedido[]> {

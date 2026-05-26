@@ -30,6 +30,18 @@ export async function PUT(
     const v = body.limite_atendimentos;
     patch.limite_atendimentos = v === '' || v == null ? null : Number(v);
   }
+  if (body?.limite_entregadores !== undefined) {
+    const v = body.limite_entregadores;
+    if (v === '' || v == null) {
+      patch.limite_entregadores = null;
+    } else {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 1) {
+        return NextResponse.json({ error: 'limite_entregadores deve ser >= 1' }, { status: 400 });
+      }
+      patch.limite_entregadores = n;
+    }
+  }
   if (body?.duracao_dias !== undefined) {
     const d = Number(body.duracao_dias);
     if (!Number.isFinite(d) || d <= 0) {

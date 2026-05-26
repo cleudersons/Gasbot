@@ -27,7 +27,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'nome e whatsapp obrigatórios' }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin()
+  const db = supabaseAdmin();
+
+  // Enforcement: limite_entregadores do plano atual da agência
+  const { data: ag } = await db
+    .from('agencias')
+    .select('plano_slug')
+    .eq('id', agenciaId)
+    .maybeSingle();
+
+  if (ag?.plano_slug) {
+    const { data: plano } = await db
+      .from('planos')
+      .select('limite_entregadores, nome')
+      .eq('slug', ag.plano_slug)
+      .maybeSingle();
+
+    if (plano?.limite_entregadores != null) {
+      const { count } = await db
+        .from('entregadores')
+        .select('id', { count: 'exact', head: true })
+        .eq('agencia_id', agenciaId)
+        .eq('ativo', true);
+
+      if ((count ?? 0) >= plano.limite_entregadores) {
+        return NextResponse.json(
+          {
+            error: `Seu plano (${plano.nome}) permite até ${plano.limite_entregadores} entregadores. Faça upgrade para adicionar mais.`,
+          },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
+  const { data, error } = await db
     .from('entregadores')
     .insert({ agencia_id: agenciaId, nome, whatsapp, ativo: true })
     .select()
@@ -50,7 +84,43 @@ export async function PATCH(req: Request) {
   if (typeof body.nome === 'string') update.nome = body.nome;
   if (typeof body.whatsapp === 'string') update.whatsapp = body.whatsapp;
 
-  const { error } = await supabaseAdmin()
+  const db = supabaseAdmin();
+
+  // Reativação: aplica o mesmo enforcement do POST
+  if (update.ativo === true) {
+    const { data: ag } = await db
+      .from('agencias')
+      .select('plano_slug')
+      .eq('id', agenciaId)
+      .maybeSingle();
+
+    if (ag?.plano_slug) {
+      const { data: plano } = await db
+        .from('planos')
+        .select('limite_entregadores, nome')
+        .eq('slug', ag.plano_slug)
+        .maybeSingle();
+
+      if (plano?.limite_entregadores != null) {
+        const { count } = await db
+          .from('entregadores')
+          .select('id', { count: 'exact', head: true })
+          .eq('agencia_id', agenciaId)
+          .eq('ativo', true);
+
+        if ((count ?? 0) >= plano.limite_entregadores) {
+          return NextResponse.json(
+            {
+              error: `Seu plano (${plano.nome}) permite até ${plano.limite_entregadores} entregadores ativos.`,
+            },
+            { status: 403 },
+          );
+        }
+      }
+    }
+  }
+
+  const { error } = await db
     .from('entregadores')
     .update(update)
     .eq('id', id)

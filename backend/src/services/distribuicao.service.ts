@@ -12,10 +12,27 @@ interface AgenciaInfo {
 
 function montarAviso(p: Pedido): string {
   const pagamento = p.forma_pagamento ? `\n💳 Pagamento: ${p.forma_pagamento}` : '';
+
+  // Multi-item: lista cada item; senão usa produto/quantidade legados
+  let blocoItens: string;
+  if (p.itens && p.itens.length > 0) {
+    blocoItens =
+      `📦 Itens:\n` +
+      p.itens.map((i) => `   • ${i.quantidade}x ${i.produto}`).join('\n');
+  } else {
+    blocoItens = `📦 Produto: ${p.produto} x${p.quantidade}`;
+  }
+
+  const total =
+    p.valor_total != null
+      ? `\n💰 Total: ${p.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+      : '';
+
   return (
     `🛵 *Novo Pedido!*\n` +
-    `📦 Produto: ${p.produto} x${p.quantidade}\n` +
-    `👤 Cliente: ${p.cliente_whatsapp}\n` +
+    blocoItens +
+    total +
+    `\n👤 Cliente: ${p.cliente_whatsapp}\n` +
     `📍 Endereço: ${p.endereco}` +
     pagamento +
     `\n🗺 Maps: ${p.maps_link}\n` +

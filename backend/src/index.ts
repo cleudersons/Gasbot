@@ -18,8 +18,10 @@ import {
   buscarPedidoAtivoDoCliente,
   marcarContatoEntregador,
   atualizarStatus,
+  contarPedidosUltimos30Dias,
   Pedido,
 } from './services/pedidos.service';
+import { parsePedidoConfirmado, removerTokenPedido, resumoItens } from './services/pedido-parser';
 import {
   buscarEntregadorPorWhatsapp,
 } from './services/entregadores.service';
@@ -259,10 +261,8 @@ async function processarMensagemRecebida(
 
     console.log(`[webhook] Mensagem de ${from} → agência ${agenciaId}: ${text}`);
 
-    // Contar atendimento de cliente em trial (1 mensagem inbound = 1 atendimento)
-    if (trial.ativo) {
-      await incrementarAtendimentoTrial(agenciaId, trial.atendimentos);
-    }
+    // (Contador de atendimentos virou contador de pedidos confirmados —
+    //  incremento foi movido para o bloco PEDIDO_CONFIRMADO abaixo.)
 
     // Horário de atendimento — injeta marca no texto se fora do horário
     const dentroHorario = estaNoHorario(agencia as any);
@@ -317,49 +317,76 @@ async function processarMensagemRecebida(
     ];
     await salvarHistorico(agenciaId, from, novoHistorico);
 
-    // Detectar PEDIDO_CONFIRMADO — aceita 3 ou 4 campos (compat com prompt antigo)
+    // Detectar PEDIDO_CONFIRMADO (multi-item) — parser isolado em pedido-parser.ts
     let mensagemCliente = reply;
-    const pedidoMatch =
-      reply.match(/PEDIDO_CONFIRMADO:([^|]+)\|([^|]+)\|([^|\n]+)\|([^\n]+)/) ||
-      reply.match(/PEDIDO_CONFIRMADO:([^|]+)\|([^|]+)\|([^\n]+)/);
+    const parsed = parsePedidoConfirmado(reply);
     let pedidoCriadoId: string | null = null;
 
-    if (pedidoMatch) {
-      const produto = pedidoMatch[1].trim();
-      const quantidadeStr = pedidoMatch[2].trim();
-      const endereco = pedidoMatch[3].trim();
-      const formaPagamento = pedidoMatch[4]?.trim() ?? null;
-      const quantidade = parseInt(quantidadeStr, 10) || 1;
-
-      const abertura = dentroHorario ? null : proximaAbertura(agencia as any);
-      const pedido = await salvarPedido(agenciaId, from, produto, quantidade, endereco, {
-        status: dentroHorario ? 'pendente' : 'agendado',
-        agendadoPara: abertura ?? undefined,
-        formaPagamento,
-      });
-      pedidoCriadoId = pedido.id;
-      console.log(
-        `[pedido] salvo: ${pedido.id} (status=${dentroHorario ? 'pendente' : 'agendado'})`,
-      );
-
-      // Atualiza/cria registro do cliente com produto e endereço preferidos
-      try {
-        await upsertCliente(agenciaId, from, produto, endereco);
-      } catch (e: any) {
-        console.error('[cliente] upsert falhou:', e?.message ?? e);
+    if (parsed) {
+      // Enforcement do limite mensal do plano
+      // Trial: usa trial_atendimentos (job avaliarTrial já bloqueia em 20)
+      // Pago: conta pedidos não-cancelados nos últimos 30 dias vs agencia.limite_atendimentos
+      let bloqueado = false;
+      if (!trial.ativo && agencia.limite_atendimentos != null) {
+        const usados = await contarPedidosUltimos30Dias(agenciaId);
+        if (usados >= agencia.limite_atendimentos) {
+          bloqueado = true;
+          console.warn(
+            `[limite] agencia=${agenciaId} atingiu ${usados}/${agencia.limite_atendimentos} pedidos no mês`,
+          );
+        }
       }
 
-      if (dentroHorario) {
-        await distribuirPedido(pedido, agencia as any);
+      if (bloqueado) {
+        mensagemCliente =
+          'Estamos com volume alto de pedidos no momento e meu sistema travou pra anotar mais. ' +
+          'Pode tentar de novo em alguns minutos? 🙏';
       } else {
-        console.log(`[pedido] aguardando abertura em ${abertura?.toISOString()}`);
-      }
+        const { produto: produtoResumo, quantidade: qtdResumo } = resumoItens(parsed.itens);
+        const abertura = dentroHorario ? null : proximaAbertura(agencia as any);
+        const pedido = await salvarPedido(
+          agenciaId,
+          from,
+          produtoResumo,
+          qtdResumo,
+          parsed.endereco,
+          {
+            status: dentroHorario ? 'pendente' : 'agendado',
+            agendadoPara: abertura ?? undefined,
+            formaPagamento: parsed.formaPagamento,
+            itens: parsed.itens,
+            valorTotal: parsed.valorTotal,
+          },
+        );
+        pedidoCriadoId = pedido.id;
+        console.log(
+          `[pedido] salvo: ${pedido.id} itens=${parsed.itens.length} total=${parsed.valorTotal ?? '-'} status=${dentroHorario ? 'pendente' : 'agendado'}`,
+        );
 
-      mensagemCliente = reply.replace(/PEDIDO_CONFIRMADO:[^\n]+/g, '').trim();
-      if (!mensagemCliente) {
-        mensagemCliente = dentroHorario
-          ? '✅ Pedido confirmado! Já avisei o entregador. 🛵'
-          : '✅ Pedido agendado! Vou disparar para o entregador assim que abrirmos.';
+        // Atualiza preferências do cliente com o item principal (primeiro da lista)
+        try {
+          await upsertCliente(agenciaId, from, parsed.itens[0].produto, parsed.endereco);
+        } catch (e: any) {
+          console.error('[cliente] upsert falhou:', e?.message ?? e);
+        }
+
+        // Trial: 1 PEDIDO_CONFIRMADO = 1 atendimento
+        if (trial.ativo) {
+          await incrementarAtendimentoTrial(agenciaId, trial.atendimentos);
+        }
+
+        if (dentroHorario) {
+          await distribuirPedido(pedido, agencia as any);
+        } else {
+          console.log(`[pedido] aguardando abertura em ${abertura?.toISOString()}`);
+        }
+
+        mensagemCliente = removerTokenPedido(reply);
+        if (!mensagemCliente) {
+          mensagemCliente = dentroHorario
+            ? '✅ Pedido confirmado! Já avisei o entregador. 🛵'
+            : '✅ Pedido agendado! Vou disparar para o entregador assim que abrirmos.';
+        }
       }
     }
 

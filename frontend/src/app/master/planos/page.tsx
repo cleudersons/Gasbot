@@ -13,6 +13,7 @@ interface PlanoItem {
   categoria: 'basico' | 'pro';
   preco_normal: number | null;
   limite_atendimentos: number | null;
+  limite_entregadores: number | null;
   duracao_dias: number;
   fundador: boolean;
   ativo: boolean;
@@ -54,6 +55,7 @@ export default function MasterPlanosPage() {
   const [categoria, setCategoria] = useState<'basico' | 'pro'>('basico');
   const [preco, setPreco] = useState('');
   const [limite, setLimite] = useState('');
+  const [limiteEntregadores, setLimiteEntregadores] = useState('');
   const [duracao, setDuracao] = useState('30');
   const [fundador, setFundador] = useState(false);
   const [ativo, setAtivo] = useState(true);
@@ -87,6 +89,7 @@ export default function MasterPlanosPage() {
     setCategoria('basico');
     setPreco('');
     setLimite('');
+    setLimiteEntregadores('');
     setDuracao('30');
     setFundador(false);
     setAtivo(true);
@@ -104,6 +107,7 @@ export default function MasterPlanosPage() {
     setCategoria(p.categoria);
     setPreco(p.preco_normal != null ? String(p.preco_normal) : '');
     setLimite(p.limite_atendimentos != null ? String(p.limite_atendimentos) : '');
+    setLimiteEntregadores(p.limite_entregadores != null ? String(p.limite_entregadores) : '');
     setDuracao(String(p.duracao_dias));
     setFundador(p.fundador);
     setAtivo(p.ativo);
@@ -125,6 +129,7 @@ export default function MasterPlanosPage() {
         categoria,
         preco_normal: preco === '' ? null : Number(preco),
         limite_atendimentos: limite === '' ? null : Number(limite),
+        limite_entregadores: limiteEntregadores === '' ? null : Number(limiteEntregadores),
         duracao_dias: Number(duracao),
         fundador,
         ativo,
@@ -200,7 +205,8 @@ export default function MasterPlanosPage() {
                 <th className="px-4 py-2 font-medium">Nome</th>
                 <th className="px-4 py-2 font-medium">Categoria</th>
                 <th className="px-4 py-2 font-medium">Preço</th>
-                <th className="px-4 py-2 font-medium">Limite</th>
+                <th className="px-4 py-2 font-medium">Pedidos/mês</th>
+                <th className="px-4 py-2 font-medium">Entregadores</th>
                 <th className="px-4 py-2 font-medium">Duração</th>
                 <th className="px-4 py-2 font-medium">Fundador</th>
                 <th className="px-4 py-2 font-medium">Visibilidade</th>
@@ -220,6 +226,7 @@ export default function MasterPlanosPage() {
                   </td>
                   <td className="px-4 py-2">{formatPreco(p.preco_normal)}</td>
                   <td className="px-4 py-2">{p.limite_atendimentos ?? 'ilimitado'}</td>
+                  <td className="px-4 py-2">{p.limite_entregadores ?? 'ilimitado'}</td>
                   <td className="px-4 py-2">{p.duracao_dias}d</td>
                   <td className="px-4 py-2">{p.fundador ? '👑' : '—'}</td>
                   <td className="px-4 py-2">
@@ -256,7 +263,7 @@ export default function MasterPlanosPage() {
               ))}
               {planos.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                     Nenhum plano cadastrado.
                   </td>
                 </tr>
@@ -328,10 +335,10 @@ export default function MasterPlanosPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block font-medium mb-1">
-                Limite atendimentos <span className="text-gray-500 font-normal">(vazio = ilimitado)</span>
+                Pedidos/mês <span className="text-gray-500 font-normal">(vazio = ilimitado)</span>
               </label>
               <input
                 type="number"
@@ -340,6 +347,19 @@ export default function MasterPlanosPage() {
                 onChange={(e) => setLimite(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 placeholder="200"
+              />
+            </div>
+            <div>
+              <label className="block font-medium mb-1">
+                Entregadores <span className="text-gray-500 font-normal">(vazio = ilimitado)</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={limiteEntregadores}
+                onChange={(e) => setLimiteEntregadores(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                placeholder="2"
               />
             </div>
             <div>

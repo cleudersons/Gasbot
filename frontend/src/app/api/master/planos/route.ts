@@ -27,6 +27,7 @@ export async function POST(req: Request) {
   const nome = (body?.nome ?? '').toString().trim();
   const categoria = body?.categoria;
   const limiteRaw = body?.limite_atendimentos;
+  const limiteEntrRaw = body?.limite_entregadores;
   const duracao = Number(body?.duracao_dias ?? 30);
   const preco = body?.preco_normal != null ? Number(body.preco_normal) : null;
   const fundador = !!body?.fundador;
@@ -50,6 +51,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'limite_atendimentos inválido' }, { status: 400 });
   }
 
+  const limiteEntregadores =
+    limiteEntrRaw === '' || limiteEntrRaw == null ? null : Number(limiteEntrRaw);
+  if (limiteEntregadores !== null && (!Number.isFinite(limiteEntregadores) || limiteEntregadores < 1)) {
+    return NextResponse.json({ error: 'limite_entregadores deve ser >= 1' }, { status: 400 });
+  }
+
   const { data, error } = await supabaseAdmin()
     .from('planos')
     .insert({
@@ -59,6 +66,7 @@ export async function POST(req: Request) {
       categoria,
       preco_normal: preco,
       limite_atendimentos: limite,
+      limite_entregadores: limiteEntregadores,
       duracao_dias: duracao,
       fundador,
       ativo,
