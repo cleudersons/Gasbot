@@ -175,6 +175,51 @@ export async function buscarPedidoAtivoDoCliente(
   };
 }
 
+/**
+ * Procura o último pedido ENTREGUE desse cliente dentro de uma janela
+ * (default 120 min). Usado pra que o agente saiba responder caso o cliente
+ * pergunte/agradeça logo após a entrega, sem confundir com um novo pedido.
+ */
+export async function buscarUltimoPedidoEntregue(
+  agenciaId: string,
+  whatsapp: string,
+  dentroMin: number = 120,
+): Promise<(Pedido & { entregador_nome: string | null; entregue_ha_min: number }) | null> {
+  const db = getSupabase();
+  const variantes = variantesWhatsappBR(whatsapp);
+  const limite = new Date(Date.now() - dentroMin * 60 * 1000).toISOString();
+
+  const { data } = await db
+    .from('pedidos')
+    .select('*')
+    .eq('agencia_id', agenciaId)
+    .in('cliente_whatsapp', variantes)
+    .eq('status', 'entregue')
+    .gte('status_atualizado_em', limite)
+    .order('status_atualizado_em', { ascending: false })
+    .limit(1);
+
+  if (!data || data.length === 0) return null;
+  const pedido = data[0] as Pedido & { status_atualizado_em?: string | null };
+
+  let entregadorNome: string | null = null;
+  if (pedido.entregador_id) {
+    const { data: ent } = await db
+      .from('entregadores')
+      .select('nome')
+      .eq('id', pedido.entregador_id)
+      .maybeSingle();
+    if (ent) entregadorNome = (ent as any).nome ?? null;
+  }
+
+  const entregueEm = pedido.status_atualizado_em
+    ? new Date(pedido.status_atualizado_em).getTime()
+    : Date.now();
+  const entregueHaMin = Math.round((Date.now() - entregueEm) / 60000);
+
+  return { ...pedido, entregador_nome: entregadorNome, entregue_ha_min: entregueHaMin };
+}
+
 /** Registra que o entregador acabou de ser cobrado por causa desse pedido. */
 export async function marcarContatoEntregador(pedidoId: string): Promise<void> {
   const { error } = await getSupabase()

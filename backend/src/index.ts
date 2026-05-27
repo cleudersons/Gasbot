@@ -16,6 +16,7 @@ import {
   buscarPedidoPorPrefixo,
   buscarPedidosAtivosDoEntregador,
   buscarPedidoAtivoDoCliente,
+  buscarUltimoPedidoEntregue,
   marcarContatoEntregador,
   atualizarStatus,
   contarPedidosUltimos30Dias,
@@ -300,6 +301,20 @@ async function processarMensagemRecebida(
           `entregador_whatsapp=${pedidoAtivo.entregador_whatsapp ?? ''}, ` +
           `atrasado=${atrasado}, pode_contatar_entregador=${podeContatar}]`,
       );
+    }
+
+    // Último pedido ENTREGUE recente (janela 2h) — só injeta se não há pedido ativo,
+    // assim o agente sabe que a entrega terminou e pode responder/abrir novo pedido.
+    if (!pedidoAtivo) {
+      const recente = await buscarUltimoPedidoEntregue(agenciaId, from, 120);
+      if (recente) {
+        marcas.push(
+          `[PEDIDO_ENTREGUE_RECENTE: id_curto=${recente.id.slice(0, 8)}, ` +
+            `produto=${recente.produto} x${recente.quantidade}, ` +
+            `entregue_ha_min=${recente.entregue_ha_min}, ` +
+            `entregador=${recente.entregador_nome ?? 'entregador'}]`,
+        );
+      }
     }
 
     const textoParaIA = marcas.length ? `${marcas.join('\n')}\n\n${text}` : text;
