@@ -24,6 +24,8 @@ export default function EntregadoresPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [expedienteInicio, setExpedienteInicio] = useState('07:00');
+  const [expedienteFim, setExpedienteFim] = useState('18:00');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,11 +88,18 @@ export default function EntregadoresPage() {
       const res = await fetch('/api/entregadores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, whatsapp }),
+        body: JSON.stringify({
+          nome,
+          whatsapp,
+          expediente_inicio: expedienteInicio || null,
+          expediente_fim: expedienteFim || null,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       setNome('');
+      setExpedienteInicio('07:00');
+      setExpedienteFim('18:00');
       setWhatsapp('');
       setModalOpen(false);
       fetchEntregadores();
@@ -251,6 +260,39 @@ export default function EntregadoresPage() {
             />
             <p className="text-xs text-gray-500 mt-1">Formato: DDI + DDD + número, sem espaços ou +.</p>
           </div>
+
+          <div>
+            <p className="text-sm font-medium mb-1">Horário de expediente</p>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="time"
+                value={expedienteInicio}
+                onChange={(e) => setExpedienteInicio(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              <input
+                type="time"
+                value={expedienteFim}
+                onChange={(e) => setExpedienteFim(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 space-y-1">
+            <p className="font-semibold">⚠️ Importante — orientação ao entregador</p>
+            <p>
+              10 minutos antes do expediente, o agente envia uma mensagem perguntando se ele
+              está pronto. <strong>O entregador precisa responder</strong> (basta mandar
+              "to pronto" ou qualquer texto) pra abrir a janela do WhatsApp e receber os pedidos
+              do dia.
+            </p>
+            <p>
+              Se ele não responder, o WhatsApp Business pode bloquear o envio de novos pedidos
+              pra ele até a próxima interação.
+            </p>
+          </div>
+
           <button
             type="submit"
             disabled={saving}

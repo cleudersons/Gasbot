@@ -23,6 +23,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const nome = body?.nome?.trim();
   const whatsapp = body?.whatsapp?.trim();
+  const expedienteInicio = body?.expediente_inicio?.trim() || null;
+  const expedienteFim = body?.expediente_fim?.trim() || null;
   if (!nome || !whatsapp) {
     return NextResponse.json({ error: 'nome e whatsapp obrigatórios' }, { status: 400 });
   }
@@ -63,7 +65,14 @@ export async function POST(req: Request) {
 
   const { data, error } = await db
     .from('entregadores')
-    .insert({ agencia_id: agenciaId, nome, whatsapp, ativo: true })
+    .insert({
+      agencia_id: agenciaId,
+      nome,
+      whatsapp,
+      ativo: true,
+      expediente_inicio: expedienteInicio,
+      expediente_fim: expedienteFim,
+    })
     .select()
     .single();
 
@@ -83,6 +92,14 @@ export async function PATCH(req: Request) {
   if (typeof body.ativo === 'boolean') update.ativo = body.ativo;
   if (typeof body.nome === 'string') update.nome = body.nome;
   if (typeof body.whatsapp === 'string') update.whatsapp = body.whatsapp;
+  if (body.expediente_inicio !== undefined) {
+    const v = typeof body.expediente_inicio === 'string' ? body.expediente_inicio.trim() : '';
+    update.expediente_inicio = v.length > 0 ? v : null;
+  }
+  if (body.expediente_fim !== undefined) {
+    const v = typeof body.expediente_fim === 'string' ? body.expediente_fim.trim() : '';
+    update.expediente_fim = v.length > 0 ? v : null;
+  }
 
   const db = supabaseAdmin();
 
