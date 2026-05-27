@@ -36,6 +36,7 @@
 | 9 | **Suporte interno** (chat/ticket) | 🟡 Médio | M-G | Operação |
 | 10 | **API pública / Zapier** | 🟢 Baixo | G | Crescimento |
 | 11 | **Multi-número WhatsApp Pro** | ⏸️ Paused | G | Só sob demanda |
+| 12 | **Performance / fluidez** | 🟡 Em andamento | P-M | Experiência |
 
 ---
 
@@ -307,6 +308,36 @@ Auditar se `agencias` tem `nome_dono` e `email_dono` salvos. Se não, adicionar 
 - Prompt continua **único por agência** (decidido)
 - Painel `/dashboard/conexao` lista até 3 números no Pro
 - Enforcement: básico (1) e Pro (3)
+
+---
+
+## Item 12 — Performance / fluidez 🟡
+
+### Diagnóstico (do código existente)
+- Layout do dashboard re-renderiza dados a cada navegação (já está em `Promise.all`)
+- Sem `loading.tsx`/skeletons → tela parece travada enquanto a página carrega
+- Listas grandes (pedidos/clientes) ainda sem paginação — vai pesar com crescimento
+- Possível distância geográfica do Supabase (verificar região)
+
+### Plano em 3 ondas
+
+#### 🟢 Onda 1 — Wins rápidos (✅ já feito no commit que adicionou esta seção)
+- [x] Componente `PageSkeleton` genérico
+- [x] `loading.tsx` em `app/dashboard/` e `app/master/` (cobre todas as subrotas)
+- [x] Confirmado: layout usa `Promise.all` e Links da sidebar têm prefetch padrão do Next
+
+#### 🟡 Onda 2 — Verificações sem código
+- [ ] Confirmar região do Supabase em **Settings → General**. Se for US, considerar migrar para `sa-east-1` (delicado — só vale se confirmado RTT alto)
+- [ ] Olhar **Database → Query Performance** no dashboard Supabase pra ver queries reais lentas
+- [ ] Adicionar índices nas colunas mais usadas em filtros (já temos os críticos)
+
+#### 🟡 Onda 3 — Paginação e índices (junto com items 8 e 10)
+- [ ] Paginar listas (pedidos, clientes, notificações master) — 20 itens por página com "carregar mais" ou cursor
+- [ ] Trocar `count: 'exact'` por `count: 'estimated'` em badges/totais grandes
+- [ ] Streaming com `Suspense` em páginas pesadas (cards aparecem conforme ficam prontos)
+
+### Vai escalar?
+Hoje a lentidão é arquitetural (não cresce com volume). Mas se não atacar paginação/índices, **com 1.000+ clientes vai piorar feio**. Onda 3 deve sair junto com os items 8 (Master /agencias) e 10 (API pública), que já vão tocar essas áreas.
 
 ---
 
