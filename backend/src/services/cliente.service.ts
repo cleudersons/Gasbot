@@ -27,16 +27,21 @@ export async function buscarCliente(
   return data && data.length > 0 ? (data[0] as Cliente) : null;
 }
 
+// Calcula a média móvel dos últimos N intervalos entre pedidos confirmados.
+// Considera variantes do whatsapp (com/sem 9), exclui cancelados e filtra
+// outliers (intervalos < 3 dias ou > 90 dias — gás raramente foge disso).
 async function mediaIntervalosUltimosPedidos(
   agenciaId: string,
   whatsapp: string,
   limite = 5,
 ): Promise<number | null> {
+  const variantes = variantesWhatsappBR(whatsapp);
   const { data } = await getSupabase()
     .from('pedidos')
-    .select('criado_em')
+    .select('criado_em, status')
     .eq('agencia_id', agenciaId)
-    .eq('cliente_whatsapp', whatsapp)
+    .in('cliente_whatsapp', variantes)
+    .neq('status', 'cancelado')
     .order('criado_em', { ascending: false })
     .limit(limite);
 
@@ -44,10 +49,12 @@ async function mediaIntervalosUltimosPedidos(
   const ts = data.map((r) => new Date(r.criado_em).getTime()).sort((a, b) => a - b);
   const diffs: number[] = [];
   for (let i = 1; i < ts.length; i++) {
-    diffs.push((ts[i] - ts[i - 1]) / (24 * 60 * 60 * 1000));
+    const d = (ts[i] - ts[i - 1]) / (24 * 60 * 60 * 1000);
+    if (d >= 3 && d <= 90) diffs.push(d); // descarta duplicados (<3d) e ausência longa (>90d)
   }
+  if (diffs.length === 0) return null;
   const media = diffs.reduce((s, d) => s + d, 0) / diffs.length;
-  return Math.max(1, Math.round(media));
+  return Math.max(3, Math.min(90, Math.round(media)));
 }
 
 export async function upsertCliente(
@@ -84,14 +91,29 @@ export async function upsertCliente(
     update.produto_preferido = produto;
   }
   if (endereco) update.endereco_preferido = endereco;
-  if (diasRecarga) update.dias_recarga = diasRecarga;
   if (nome && !existente.nome) update.nome = nome; // só grava se ainda não tem
 
-  // Recalcula média se já tem histórico suficiente
+  // Regra de dias_recarga (prioridade):
+  // - Cliente com < 2 pedidos: usa o que ele disse (LEMBRETE_CONFIRMADO:X)
+  //   porque ainda não temos histórico real pra calcular nada.
+  // - Cliente com >= 2 pedidos: IGNORA o valor dito e usa a média móvel
+  //   dos intervalos reais. Adapta automaticamente ao comportamento.
   const totalDepois = (existente.total_pedidos ?? 0) + (produto ? 1 : 0);
-  if (!diasRecarga && totalDepois >= 3) {
+  if (totalDepois >= 2) {
     const media = await mediaIntervalosUltimosPedidos(agenciaId, whatsapp);
-    if (media) update.dias_recarga = media;
+    if (media) {
+      update.dias_recarga = media;
+      if (diasRecarga && diasRecarga !== media) {
+        console.log(
+          `[cliente] ${whatsapp}: dias_recarga ajustado pra ${media} (cliente disse ${diasRecarga}, mas histórico real manda)`,
+        );
+      }
+    } else if (diasRecarga) {
+      // Sem histórico filtrável ainda — aceita o valor do cliente
+      update.dias_recarga = diasRecarga;
+    }
+  } else if (diasRecarga) {
+    update.dias_recarga = diasRecarga;
   }
 
   if (Object.keys(update).length === 0) return;
