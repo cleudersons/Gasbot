@@ -288,7 +288,10 @@ export default function EntregadoresPage() {
               do dia.
             </p>
             <p>
-              Se ele não responder, o WhatsApp Business pode bloquear o envio de novos pedidos
+              <span className="bg-amber-200 text-amber-900 font-semibold px-1 rounded">
+                ⚡ Caso use a API Oficial (Meta)
+              </span>
+              : se ele não responder, o WhatsApp Business pode bloquear o envio de novos pedidos
               pra ele até a próxima interação.
             </p>
           </div>
