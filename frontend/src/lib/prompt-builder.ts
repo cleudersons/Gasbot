@@ -134,7 +134,48 @@ export function buildPrompt(c: PromptConfig): string {
   if (c.modo === 'livre') {
     const texto = (c.texto_livre ?? '').trim();
     if (texto.length > 0) {
-      return `${texto}\n\n${FIXO_TECNICO}`;
+      // Mesmo no modo avançado, anexamos os blocos de dados estruturados
+      // (PIX, marca do gás, taxa de entrega) que vêm dos campos próprios —
+      // assim a IA tem a info concreta, não só a regra do FIXO_TECNICO.
+      const extras: string[] = [];
+      const pixChaveL = c.pix_chave?.trim() || '';
+      const pixTitularL = c.pix_titular?.trim() || '';
+      const marcaL = c.marca_gas?.trim() || '';
+      const taxaL = c.taxa_entrega?.trim() || '';
+
+      if (pixChaveL) {
+        extras.push(
+          bloco(
+            'CHAVE PIX:',
+            [
+              `Chave: ${pixChaveL}`,
+              pixTitularL ? `Titular: ${pixTitularL}` : '',
+              'Siga a regra "CHAVE PIX" do bloco técnico: envie em duas mensagens (uma de contexto e outra só com a chave, para facilitar o copiar no WhatsApp).',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          ),
+        );
+      }
+      if (marcaL) {
+        extras.push(
+          bloco(
+            'MARCA(S) DO GÁS:',
+            `Marcas que trabalhamos: ${marcaL}. Quando o cliente perguntar, responda com essas marcas.`,
+          ),
+        );
+      }
+      if (taxaL) {
+        extras.push(
+          bloco(
+            'TAXA DE ENTREGA:',
+            `Detalhes: ${taxaL}. Informe espontaneamente no resumo do pedido e some ao valor total.`,
+          ),
+        );
+      }
+
+      const extrasTxt = extras.length ? `\n\n${extras.join('\n\n')}` : '';
+      return `${texto}${extrasTxt}\n\n${FIXO_TECNICO}`;
     }
     // se modo='livre' mas texto vazio, cai no fluxo do form (degrada graciosamente)
   }
