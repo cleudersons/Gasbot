@@ -6,16 +6,24 @@ import { enviarEmailBoasVindasComSenha } from '../lib/email';
 async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp?: string }) {
   const formId = process.env.SUTOFLY_FORM_ID?.trim() ?? '6';
   const url = process.env.SUTOFLY_FORM_URL?.trim() ?? 'https://pay.sutofly.com/form_submit.php';
-  const body = new URLSearchParams({
-    form_id: formId,
-    nome: dados.nome,
-    email: dados.email,
-    whatsapp: dados.whatsapp ?? '',
-  });
+
+  // IDs dos campos na tabela formulario_campos do banco da Sutofly.
+  // Para form_id=6: nome=245, email=246, whatsapp=247.
+  const idNome = process.env.SUTOFLY_CAMPO_NOME_ID?.trim() ?? '245';
+  const idEmail = process.env.SUTOFLY_CAMPO_EMAIL_ID?.trim() ?? '246';
+  const idWhats = process.env.SUTOFLY_CAMPO_WHATSAPP_ID?.trim() ?? '247';
+
+  const body = new URLSearchParams();
+  body.append('formulario_id', formId);
+  body.append(`campo[${idNome}]`, dados.nome);
+  body.append(`campo[${idEmail}]`, dados.email);
+  body.append(`campo[${idWhats}]`, dados.whatsapp ?? '');
+
   await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
+    redirect: 'manual',
   });
 }
 
