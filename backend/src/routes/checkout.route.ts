@@ -25,26 +25,17 @@ router_.post('/webhook/test-email', async (req: Request, res: Response) => {
     APP_URL: !!process.env.APP_URL,
   };
 
-  // Tenta enviar direto pelo nodemailer pra capturar o erro real (helper engole no try/catch)
+  const envResend = {
+    RESEND_API_KEY: !!process.env.RESEND_API_KEY,
+    SMTP_FROM: !!process.env.SMTP_FROM,
+    APP_URL: !!process.env.APP_URL,
+  };
+
   try {
-    const nodemailer = await import('nodemailer');
-    const trim = (v: string | undefined) => v?.trim();
-    const port = Number(trim(process.env.SMTP_PORT) ?? 465);
-    const transporter = nodemailer.default.createTransport({
-      host: trim(process.env.SMTP_HOST),
-      port,
-      secure: port === 465,
-      auth: { user: trim(process.env.SMTP_USER), pass: trim(process.env.SMTP_PASSWORD) },
-    });
-    const info = await transporter.sendMail({
-      from: trim(process.env.SMTP_FROM) ?? 'SutoGas <noreply@sutogas.com.br>',
-      to,
-      subject: 'Teste SMTP SutoGas',
-      text: 'Se voce esta lendo isso, o SMTP funciona!',
-    });
-    return res.json({ ok: true, to, env, messageId: info.messageId });
+    const ok = await enviarEmailBoasVindasComSenha({ to, senhaTemporaria: 'teste-1234' });
+    return res.json({ ok, to, env: envResend });
   } catch (err: any) {
-    return res.json({ ok: false, to, env, erro: err?.message ?? String(err), code: err?.code });
+    return res.json({ ok: false, to, env: envResend, erro: err?.message ?? String(err) });
   }
 });
 

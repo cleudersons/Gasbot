@@ -1,33 +1,21 @@
-import nodemailer, { Transporter } from 'nodemailer';
-
-let transporterCache: Transporter | null = null;
+import { Resend } from 'resend';
 
 function envClean(name: string): string | undefined {
   const v = process.env[name];
   return v ? v.trim() : undefined;
 }
 
-function getTransporter(): Transporter | null {
-  if (transporterCache) return transporterCache;
+let resendCache: Resend | null = null;
 
-  const host = envClean('SMTP_HOST');
-  const port = Number(envClean('SMTP_PORT') ?? 465);
-  const user = envClean('SMTP_USER');
-  const pass = envClean('SMTP_PASSWORD');
-
-  if (!host || !user || !pass) {
-    console.warn('[email] SMTP não configurado (SMTP_HOST/USER/PASSWORD ausentes) — envios serão ignorados');
+function getResend(): Resend | null {
+  if (resendCache) return resendCache;
+  const apiKey = envClean('RESEND_API_KEY');
+  if (!apiKey) {
+    console.warn('[email] RESEND_API_KEY ausente — envios serão ignorados');
     return null;
   }
-
-  transporterCache = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465, // 465=SSL, 587=STARTTLS
-    auth: { user, pass },
-  });
-
-  return transporterCache;
+  resendCache = new Resend(apiKey);
+  return resendCache;
 }
 
 interface EnviarEmailParams {
@@ -38,23 +26,27 @@ interface EnviarEmailParams {
 }
 
 export async function enviarEmail({ to, subject, html, text }: EnviarEmailParams): Promise<boolean> {
-  const transporter = getTransporter();
-  if (!transporter) return false;
+  const resend = getResend();
+  if (!resend) return false;
 
   const from = envClean('SMTP_FROM') ?? 'SutoGas <noreply@sutogas.com.br>';
 
   try {
-    const info = await transporter.sendMail({
+    const { data, error } = await resend.emails.send({
       from,
       to,
       subject,
       html,
       text: text ?? html.replace(/<[^>]+>/g, ''),
     });
-    console.log(`[email] enviado para ${to} (msgId=${info.messageId})`);
+    if (error) {
+      console.error(`[email] falha ao enviar para ${to}:`, error);
+      return false;
+    }
+    console.log(`[email] enviado para ${to} (id=${data?.id})`);
     return true;
   } catch (err: any) {
-    console.error(`[email] falha ao enviar para ${to}:`, err?.message ?? err);
+    console.error(`[email] excecao ao enviar para ${to}:`, err?.message ?? err);
     return false;
   }
 }
