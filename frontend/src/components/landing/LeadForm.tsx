@@ -81,9 +81,7 @@ export default function LeadForm({ ctaLabel = 'Criar conta grátis', variant = '
   }
 
   const inputBase =
-    variant === 'hero'
-      ? 'w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500'
-      : 'w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500';
+    'w-full border border-gray-300 rounded-lg px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 w-full max-w-md">
