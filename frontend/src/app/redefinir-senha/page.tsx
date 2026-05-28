@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 export default function RedefinirSenhaPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <Formulario />
+    </Suspense>
+  );
+}
+
+function Formulario() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
