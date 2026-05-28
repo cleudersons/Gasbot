@@ -37,7 +37,7 @@ function montarAviso(p: Pedido): string {
     pagamento +
     `\n🗺 Maps: ${p.maps_link}\n` +
     `🕐 ${new Date().toLocaleString('pt-BR')}\n\n` +
-    `Responda *aceito* para pegar este pedido.`
+    `Responda *aceito* para pegar ou *não aceito* para recusar.`
   );
 }
 
@@ -117,6 +117,68 @@ async function distribuirManual(agencia: AgenciaInfo, _pedido: Pedido) {
     );
   } catch (err: any) {
     console.error('[distribuicao manual] falha ao avisar dono:', err?.message ?? err);
+  }
+}
+
+// Repassa pedido pro próximo entregador após uma rejeição.
+// No modo revezamento: avança cursor pro próximo não-rejeitado e notifica só ele.
+// Nos demais modos: já foram notificados no broadcast inicial, nada a fazer.
+export async function repassarAposRejeicao(
+  pedido: Pedido,
+  agencia: AgenciaInfo,
+  rejeitadoPor: string[],
+): Promise<void> {
+  const modo = agencia.distribuicao_modo ?? 'todos';
+  if (modo !== 'revezamento') return;
+
+  const entregadores = await buscarEntregadoresAtivos(agencia.id);
+  const candidatos = entregadores.filter((e) => !rejeitadoPor.includes(e.id));
+  if (candidatos.length === 0) return;
+
+  const ordenados = [...candidatos].sort((a, b) => a.id.localeCompare(b.id));
+  const proximo = ordenados[0];
+
+  await getSupabase()
+    .from('agencias')
+    .update({ distribuicao_ultimo_entregador: proximo.id })
+    .eq('id', agencia.id);
+
+  await notificar(agencia.id, [proximo], montarAviso(pedido));
+}
+
+// Manda mensagem ao dono no WhatsApp + cria notificação no sininho do dashboard.
+// Disparada quando TODOS os entregadores ativos rejeitaram um pedido.
+export async function notificarDonoSemEntregador(
+  agencia: AgenciaInfo,
+  pedido: Pedido,
+): Promise<void> {
+  const idCurto = pedido.id.slice(0, 8);
+  const mensagem =
+    `⚠️ *Nenhum entregador aceitou o pedido!*\n\n` +
+    `📦 ${pedido.produto} x${pedido.quantidade}\n` +
+    `📍 ${pedido.endereco}\n` +
+    `🆔 ${idCurto}\n\n` +
+    `Acesse o painel para atribuir manualmente.`;
+
+  if (agencia.whatsapp_dono) {
+    try {
+      await whatsappService.sendMessage(agencia.id, agencia.whatsapp_dono, mensagem);
+    } catch (err: any) {
+      console.error('[distribuicao] falha ao avisar dono:', err?.message ?? err);
+    }
+  }
+
+  try {
+    await getSupabase().from('notificacoes').insert({
+      agencia_id: agencia.id,
+      tipo: 'pedido_sem_entregador',
+      categoria: 'alerta',
+      titulo: 'Nenhum entregador aceitou um pedido',
+      mensagem: `${pedido.produto} x${pedido.quantidade} — ${pedido.endereco}`,
+      link: '/dashboard',
+    });
+  } catch (err: any) {
+    console.error('[distribuicao] falha ao criar notificação sininho:', err?.message ?? err);
   }
 }
 

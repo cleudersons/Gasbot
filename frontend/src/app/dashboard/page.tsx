@@ -16,6 +16,7 @@ interface Pedido {
   maps_link?: string;
   forma_pagamento?: string | null;
   status_auto?: boolean;
+  rejeitado_por_nomes?: string[];
 }
 
 const ACTIVE_STATUSES = new Set(['pendente', 'aceito', 'em_entrega']);
@@ -124,7 +125,22 @@ export default function PedidosPage() {
                   <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">{p.produto}</td>
                     <td className="px-4 py-3">{p.quantidade}</td>
-                    <td className="px-4 py-3 max-w-xs truncate" title={p.endereco}>{p.endereco}</td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <div className="truncate" title={p.endereco}>{p.endereco}</div>
+                      {p.rejeitado_por_nomes && p.rejeitado_por_nomes.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {p.rejeitado_por_nomes.map((nome) => (
+                            <span
+                              key={nome}
+                              className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200"
+                              title="Entregador recusou este pedido"
+                            >
+                              {nome} recusou
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-700 capitalize">{p.forma_pagamento ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{p.cliente_whatsapp}</td>
                     <td className="px-4 py-3">

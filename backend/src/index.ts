@@ -20,11 +20,13 @@ import {
   marcarContatoEntregador,
   atualizarStatus,
   contarPedidosUltimos30Dias,
+  registrarRejeicao,
   Pedido,
 } from './services/pedidos.service';
 import { parsePedidoConfirmado, removerTokenPedido, resumoItens } from './services/pedido-parser';
 import {
   buscarEntregadorPorWhatsapp,
+  buscarEntregadoresAtivos,
 } from './services/entregadores.service';
 import * as whatsappService from './services/whatsapp/whatsapp.service';
 import { getQRCode, getStatus } from './services/qrcode.service';
@@ -37,7 +39,11 @@ import {
   Agencia,
 } from './services/agencia-routing';
 import { estaNoHorario, proximaAbertura, janelaHorarioStr } from './services/horario.service';
-import { distribuirPedido } from './services/distribuicao.service';
+import {
+  distribuirPedido,
+  repassarAposRejeicao,
+  notificarDonoSemEntregador,
+} from './services/distribuicao.service';
 import {
   buscarCliente,
   upsertCliente,
@@ -206,6 +212,95 @@ async function processarMensagemRecebida(
         await aplicarStatus(pedido, cmd);
       }
 
+      async function processarRejeicao(pedido: Pedido) {
+        try {
+          const rejeitadoPor = await registrarRejeicao(pedido.id, entregador!.id);
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            `👍 Ok, pedido ${pedido.id.slice(0, 8)} repassado para os outros entregadores.`,
+          );
+
+          // Buscar info da agência (modo + whatsapp_dono) pra decidir o próximo passo
+          const { data: ag } = await getSupabase()
+            .from('agencias')
+            .select('id, distribuicao_modo, distribuicao_ultimo_entregador, whatsapp_dono')
+            .eq('id', entregador!.agencia_id)
+            .maybeSingle();
+
+          if (!ag) return;
+
+          const ativos = await buscarEntregadoresAtivos(ag.id);
+          const todosRejeitaram = ativos.length > 0 && ativos.every((e) => rejeitadoPor.includes(e.id));
+
+          if (todosRejeitaram) {
+            await notificarDonoSemEntregador(ag, pedido);
+          } else if (ag.distribuicao_modo === 'revezamento') {
+            await repassarAposRejeicao(pedido, ag, rejeitadoPor);
+          }
+        } catch (err: any) {
+          console.error('[entregador] erro ao rejeitar:', err?.message ?? err);
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            '⚠️ Não consegui registrar a recusa. Tente novamente.',
+          );
+        }
+      }
+
+      async function processarRejeicaoPorPrefixo(prefixo: string) {
+        const { pedido, ambiguo } = await buscarPedidoPorPrefixo(entregador!.agencia_id, prefixo);
+        if (ambiguo) {
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            '⚠️ Mais de um pedido bate com esse ID. Use mais caracteres (mínimo 8).',
+          );
+          return;
+        }
+        if (!pedido) {
+          await whatsappService.sendMessage(
+            entregador!.agencia_id,
+            from,
+            '⚠️ Não encontrei esse pedido. Verifique o ID.',
+          );
+          return;
+        }
+        await processarRejeicao(pedido);
+      }
+
+      // NÃO ACEITO {id?} — entregador recusa o pedido
+      // IMPORTANTE: checar antes de ACEITO pra não dar match parcial.
+      const isRejeicao =
+        comando === 'NÃO ACEITO' ||
+        comando === 'NAO ACEITO' ||
+        comando.startsWith('NÃO ACEITO ') ||
+        comando.startsWith('NAO ACEITO ');
+      if (isRejeicao) {
+        const semPrefixo = comando.replace(/^N[ÃA]O ACEITO\s*/, '').trim();
+        if (semPrefixo) {
+          await processarRejeicaoPorPrefixo(semPrefixo);
+        } else {
+          const pendentes = await buscarPedidosPendentes(entregador.agencia_id);
+          // Filtra os que esse entregador ainda não rejeitou
+          const naoRejeitados = pendentes.filter(
+            (p) => !(p.rejeitado_por ?? []).includes(entregador!.id),
+          );
+          if (naoRejeitados.length === 0) {
+            await whatsappService.sendMessage(
+              entregador.agencia_id,
+              from,
+              '✅ Nenhum pedido pendente para recusar.',
+            );
+          } else if (naoRejeitados.length === 1) {
+            await processarRejeicao(naoRejeitados[0]);
+          } else {
+            await pedirEscolha(naoRejeitados, 'aceito'); // reusa diálogo de escolha
+          }
+        }
+        return;
+      }
+
       // ACEITO {id?} — sem ID, pega o único pendente
       if (comando === 'ACEITO' || comando.startsWith('ACEITO ')) {
         const prefixo = comando === 'ACEITO' ? '' : text.trim().slice('ACEITO '.length).trim();
@@ -257,6 +352,7 @@ async function processarMensagemRecebida(
         `Olá ${entregador.nome}! 👋\n` +
         `Para ver pedidos pendentes: responda *pedidos*\n` +
         `Para aceitar: *aceito* (ou *aceito {id curto}* se tiver mais de um)\n` +
+        `Para recusar: *não aceito* (ou *não aceito {id curto}*)\n` +
         `Para confirmar entrega: *entregue* (ou *entregue {id curto}* se tiver mais de um)`;
       await whatsappService.sendMessage(entregador.agencia_id, from, ajuda);
       return;

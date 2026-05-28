@@ -33,6 +33,32 @@ export interface Pedido {
   entregador_id?: string | null;
   itens?: PedidoItem[] | null;
   valor_total?: number | null;
+  rejeitado_por?: string[] | null;
+}
+
+// Registra que o entregador recusou o pedido. Não é atômico (read-modify-write);
+// em prática 2 rejeições simultâneas são improváveis e perder uma não é crítico.
+export async function registrarRejeicao(
+  pedidoId: string,
+  entregadorId: string,
+): Promise<string[]> {
+  const db = getSupabase();
+  const { data: atual } = await db
+    .from('pedidos')
+    .select('rejeitado_por')
+    .eq('id', pedidoId)
+    .maybeSingle();
+
+  const lista: string[] = (atual?.rejeitado_por as string[] | null) ?? [];
+  if (lista.includes(entregadorId)) return lista;
+
+  const novoArray = [...lista, entregadorId];
+  const { error } = await db
+    .from('pedidos')
+    .update({ rejeitado_por: novoArray })
+    .eq('id', pedidoId);
+  if (error) throw new Error(`Erro ao registrar rejeição: ${error.message}`);
+  return novoArray;
 }
 
 export async function salvarPedido(
