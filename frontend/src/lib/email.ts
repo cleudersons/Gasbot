@@ -83,6 +83,44 @@ export function templateBase(titulo: string, corpoHtml: string): string {
 </html>`;
 }
 
+export async function enviarEmailBoasVindasComSenha(params: {
+  to: string;
+  senhaTemporaria: string;
+}): Promise<boolean> {
+  const { to, senhaTemporaria } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Sua conta SutoGas está pronta 🎉</h1>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      Recebemos seu cadastro e já criamos sua conta de teste gratuito. Use os dados abaixo pra acessar:
+    </p>
+    <div style="background:#F8F5F0;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:0 0 20px;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">E-MAIL</p>
+      <p style="margin:0 0 16px;font-weight:600;color:#1A1A2E;font-family:monospace;font-size:15px;">${to}</p>
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">SENHA TEMPORÁRIA</p>
+      <p style="margin:0;font-weight:600;color:#1A1A2E;font-family:monospace;font-size:15px;">${senhaTemporaria}</p>
+    </div>
+    <p style="margin:0 0 24px;line-height:1.55;color:#374151;">
+      <strong>Importante:</strong> por segurança, troque sua senha em <em>Minha Conta</em> logo no primeiro acesso.
+    </p>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${appUrl}/login" style="display:inline-block;background:#F5721B;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Acessar minha conta
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">
+      Você tem 7 dias de teste grátis. Qualquer dúvida, é só responder este email.
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: 'Sua conta SutoGas está pronta — credenciais de acesso',
+    html: templateBase('Bem-vindo ao SutoGas', corpo),
+  });
+}
+
 export async function enviarEmailRedefinirSenha(params: {
   to: string;
   link: string;

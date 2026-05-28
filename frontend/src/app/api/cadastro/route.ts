@@ -1,19 +1,28 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase-server';
+import { enviarEmailBoasVindasComSenha } from '@/lib/email';
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const nome = (body?.nome ?? body?.nome_deposito ?? '').trim();
   const email = body?.email?.trim().toLowerCase();
   const whatsapp: string = (body?.whatsapp ?? '').toString().replace(/\D/g, '');
-  const senha: string = body?.senha ?? '';
+  const senhaInformada: string = (body?.senha ?? '').toString();
 
-  if (!nome || !email || !senha) {
+  if (!nome || !email) {
     return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 });
   }
-  if (senha.length < 8) {
+
+  // Se senha veio (fluxo do /cadastro), valida tamanho. Se não veio (fluxo da landing),
+  // gera senha temporária e enviaremos por email após criar a conta.
+  let senha = senhaInformada;
+  const gerouSenha = !senha;
+  if (senha && senha.length < 8) {
     return NextResponse.json({ error: 'Senha precisa ter ao menos 8 caracteres' }, { status: 400 });
+  }
+  if (!senha) {
+    senha = Math.random().toString(36).slice(-10);
   }
 
   const db = supabaseAdmin();
@@ -74,7 +83,19 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, agencia_id: agencia.id });
+  // Senha auto-gerada (fluxo da landing): dispara email com credenciais
+  if (gerouSenha) {
+    enviarEmailBoasVindasComSenha({ to: email, senhaTemporaria: senha }).catch((err) => {
+      console.error('[email] Falha ao enviar boas-vindas:', err);
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    agencia_id: agencia.id,
+    // Senha vai no JSON só pra client logar automaticamente (same-origin HTTPS).
+    senha_temporaria: gerouSenha ? senha : undefined,
+  });
 }
 
 async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp: string }) {
