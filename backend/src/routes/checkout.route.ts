@@ -3,6 +3,21 @@ import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
 import { enviarEmailBoasVindasComSenha } from '../lib/email';
 
+const router_ = Router();
+// Endpoint TEMPORÁRIO de teste de SMTP. Remover depois que validar Item 0.
+// Uso: curl -X POST -H "X-SutoGas-Secret: $SECRET" -H "Content-Type: application/json" \
+//   -d '{"to":"cleudersons@gmail.com"}' https://sutogas-backend-production.up.railway.app/webhook/test-email
+router_.post('/webhook/test-email', async (req: Request, res: Response) => {
+  const secretEsperado = process.env.SUTOGAS_WEBHOOK_SECRET;
+  if (!secretEsperado || req.header('X-SutoGas-Secret') !== secretEsperado) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const to = String(req.body?.to ?? '').trim().toLowerCase();
+  if (!to) return res.status(400).json({ error: 'to obrigatório' });
+  const ok = await enviarEmailBoasVindasComSenha({ to, senhaTemporaria: 'teste-1234' });
+  return res.json({ ok, to });
+});
+
 // Mapeamento oferta → plano vem da tabela `planos` no Supabase.
 // Cadastrado pelo Painel Master em /master/planos.
 
@@ -201,5 +216,8 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
+
+// Une as duas rotas (checkout principal + endpoint temporário de teste)
+router.use(router_);
 
 export default router;
