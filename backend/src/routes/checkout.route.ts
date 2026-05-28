@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
+import { enviarEmailBoasVindasComSenha } from '../lib/email';
 
 // Mapeamento oferta → plano vem da tabela `planos` no Supabase.
 // Cadastrado pelo Painel Master em /master/planos.
@@ -181,6 +182,13 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
     console.log(
       `[webhook/checkout] OK agencia=${agenciaId} plano=${mapping.plano} fundador=${mapping.fundador} criada=${criadaAgora}`,
     );
+
+    // Item 0 do roadmap: cliente que paga via link externo precisa receber a senha por email
+    if (criadaAgora && senhaTemp && email) {
+      enviarEmailBoasVindasComSenha({ to: email, senhaTemporaria: senhaTemp }).catch((err) => {
+        console.error('[webhook/checkout] falha ao enviar email de boas-vindas:', err?.message ?? err);
+      });
+    }
 
     return res.json({
       ok: true,
