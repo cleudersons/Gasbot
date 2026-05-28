@@ -14,8 +14,23 @@ router_.post('/webhook/test-email', async (req: Request, res: Response) => {
   }
   const to = String(req.body?.to ?? '').trim().toLowerCase();
   if (!to) return res.status(400).json({ error: 'to obrigatório' });
-  const ok = await enviarEmailBoasVindasComSenha({ to, senhaTemporaria: 'teste-1234' });
-  return res.json({ ok, to });
+
+  // Diagnóstico: expõe se as env vars estão definidas e captura erro de SMTP
+  const env = {
+    SMTP_HOST: !!process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT ?? null,
+    SMTP_USER: !!process.env.SMTP_USER,
+    SMTP_PASSWORD: !!process.env.SMTP_PASSWORD,
+    SMTP_FROM: !!process.env.SMTP_FROM,
+    APP_URL: !!process.env.APP_URL,
+  };
+
+  try {
+    const ok = await enviarEmailBoasVindasComSenha({ to, senhaTemporaria: 'teste-1234' });
+    return res.json({ ok, to, env });
+  } catch (err: any) {
+    return res.json({ ok: false, to, env, erro: err?.message ?? String(err) });
+  }
 });
 
 // Mapeamento oferta → plano vem da tabela `planos` no Supabase.
