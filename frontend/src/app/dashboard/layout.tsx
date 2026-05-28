@@ -1,6 +1,7 @@
 import { auth, signOut } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   Home,
   Users,
@@ -110,8 +111,8 @@ export default async function DashboardLayout({
         <form
           action={async () => {
             'use server';
-            const baseUrl = process.env.NEXTAUTH_URL ?? 'https://sutogas.com.br';
-            await signOut({ redirectTo: `${baseUrl}/login` });
+            await signOut({ redirect: false });
+            redirect('https://sutogas.com.br/login');
           }}
           className="p-3 border-t border-gray-200"
         >

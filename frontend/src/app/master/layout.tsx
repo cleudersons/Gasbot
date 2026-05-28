@@ -1,5 +1,6 @@
 import { auth, signOut } from '@/lib/auth';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Building2, BarChart3, Settings, LogOut, CreditCard, Bell, Crown } from 'lucide-react';
 import Logo from '@/components/Logo';
 
@@ -27,8 +28,8 @@ export default async function MasterLayout({ children }: { children: React.React
         <form
           action={async () => {
             'use server';
-            const baseUrl = process.env.NEXTAUTH_URL ?? 'https://sutogas.com.br';
-            await signOut({ redirectTo: `${baseUrl}/login` });
+            await signOut({ redirect: false });
+            redirect('https://sutogas.com.br/login');
           }}
           className="p-3 border-t border-gray-800"
         >
