@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { Crown } from 'lucide-react';
 import PerfilForm from './PerfilForm';
+import SenhaForm from './SenhaForm';
 import { perfilCompleto } from '@/lib/perfil';
 
 function formatDate(iso: string | null | undefined) {
@@ -98,6 +99,8 @@ export default async function MinhaContaPage() {
         }}
         completo={perfilCompleto(ag)}
       />
+
+      <SenhaForm />
 
       <section className="bg-white border border-gray-200 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">

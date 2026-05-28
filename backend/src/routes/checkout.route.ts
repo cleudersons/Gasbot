@@ -3,41 +3,21 @@ import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
 import { enviarEmailBoasVindasComSenha } from '../lib/email';
 
-const router_ = Router();
-// Endpoint TEMPORÁRIO de teste de SMTP. Remover depois que validar Item 0.
-// Uso: curl -X POST -H "X-SutoGas-Secret: $SECRET" -H "Content-Type: application/json" \
-//   -d '{"to":"cleudersons@gmail.com"}' https://sutogas-backend-production.up.railway.app/webhook/test-email
-router_.post('/webhook/test-email', async (req: Request, res: Response) => {
-  const secretEsperado = process.env.SUTOGAS_WEBHOOK_SECRET;
-  if (!secretEsperado || req.header('X-SutoGas-Secret') !== secretEsperado) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  const to = String(req.body?.to ?? '').trim().toLowerCase();
-  if (!to) return res.status(400).json({ error: 'to obrigatório' });
-
-  // Diagnóstico: expõe se as env vars estão definidas e captura erro de SMTP
-  const env = {
-    SMTP_HOST: !!process.env.SMTP_HOST,
-    SMTP_PORT: process.env.SMTP_PORT ?? null,
-    SMTP_USER: !!process.env.SMTP_USER,
-    SMTP_PASSWORD: !!process.env.SMTP_PASSWORD,
-    SMTP_FROM: !!process.env.SMTP_FROM,
-    APP_URL: !!process.env.APP_URL,
-  };
-
-  const envResend = {
-    RESEND_API_KEY: !!process.env.RESEND_API_KEY,
-    SMTP_FROM: !!process.env.SMTP_FROM,
-    APP_URL: !!process.env.APP_URL,
-  };
-
-  try {
-    const ok = await enviarEmailBoasVindasComSenha({ to, senhaTemporaria: 'teste-1234' });
-    return res.json({ ok, to, env: envResend });
-  } catch (err: any) {
-    return res.json({ ok: false, to, env: envResend, erro: err?.message ?? String(err) });
-  }
-});
+async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp?: string }) {
+  const formId = process.env.SUTOFLY_FORM_ID?.trim() ?? '6';
+  const url = process.env.SUTOFLY_FORM_URL?.trim() ?? 'https://pay.sutofly.com/form_submit.php';
+  const body = new URLSearchParams({
+    form_id: formId,
+    nome: dados.nome,
+    email: dados.email,
+    whatsapp: dados.whatsapp ?? '',
+  });
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+}
 
 // Mapeamento oferta → plano vem da tabela `planos` no Supabase.
 // Cadastrado pelo Painel Master em /master/planos.
@@ -224,6 +204,11 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
       enviarEmailBoasVindasComSenha({ to: email, senhaTemporaria: senhaTemp }).catch((err) => {
         console.error('[webhook/checkout] falha ao enviar email de boas-vindas:', err?.message ?? err);
       });
+
+      // Comprador externo também entra na régua de marketing da Sutofly/Mailrelay
+      registrarNoSutoflyForm({ nome: email.split('@')[0], email }).catch((err) => {
+        console.error('[webhook/checkout] falha ao registrar no Sutofly Form:', err?.message ?? err);
+      });
     }
 
     return res.json({
@@ -237,8 +222,5 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro interno' });
   }
 });
-
-// Une as duas rotas (checkout principal + endpoint temporário de teste)
-router.use(router_);
 
 export default router;

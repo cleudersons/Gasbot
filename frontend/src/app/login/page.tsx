@@ -110,6 +110,12 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
 
+          <p className="text-sm text-center">
+            <Link href="/esqueci-senha" className="text-gray-600 hover:text-orange-600 hover:underline">
+              Esqueci minha senha
+            </Link>
+          </p>
+
           <p className="text-sm text-center text-gray-600">
             Não tem conta?{' '}
             <Link href="/cadastro" className="text-orange-600 hover:underline">
