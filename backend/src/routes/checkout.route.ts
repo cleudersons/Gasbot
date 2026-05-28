@@ -28,14 +28,16 @@ router_.post('/webhook/test-email', async (req: Request, res: Response) => {
   // Tenta enviar direto pelo nodemailer pra capturar o erro real (helper engole no try/catch)
   try {
     const nodemailer = await import('nodemailer');
+    const trim = (v: string | undefined) => v?.trim();
+    const port = Number(trim(process.env.SMTP_PORT) ?? 465);
     const transporter = nodemailer.default.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? 465),
-      secure: Number(process.env.SMTP_PORT ?? 465) === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+      host: trim(process.env.SMTP_HOST),
+      port,
+      secure: port === 465,
+      auth: { user: trim(process.env.SMTP_USER), pass: trim(process.env.SMTP_PASSWORD) },
     });
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? 'SutoGas <noreply@sutogas.com.br>',
+      from: trim(process.env.SMTP_FROM) ?? 'SutoGas <noreply@sutogas.com.br>',
       to,
       subject: 'Teste SMTP SutoGas',
       text: 'Se voce esta lendo isso, o SMTP funciona!',

@@ -2,13 +2,18 @@ import nodemailer, { Transporter } from 'nodemailer';
 
 let transporterCache: Transporter | null = null;
 
+function envClean(name: string): string | undefined {
+  const v = process.env[name];
+  return v ? v.trim() : undefined;
+}
+
 function getTransporter(): Transporter | null {
   if (transporterCache) return transporterCache;
 
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT ?? 465);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const host = envClean('SMTP_HOST');
+  const port = Number(envClean('SMTP_PORT') ?? 465);
+  const user = envClean('SMTP_USER');
+  const pass = envClean('SMTP_PASSWORD');
 
   if (!host || !user || !pass) {
     console.warn('[email] SMTP não configurado (SMTP_HOST/USER/PASSWORD ausentes) — envios serão ignorados');
@@ -36,7 +41,7 @@ export async function enviarEmail({ to, subject, html, text }: EnviarEmailParams
   const transporter = getTransporter();
   if (!transporter) return false;
 
-  const from = process.env.SMTP_FROM ?? 'SutoGas <noreply@sutogas.com.br>';
+  const from = envClean('SMTP_FROM') ?? 'SutoGas <noreply@sutogas.com.br>';
 
   try {
     const info = await transporter.sendMail({
@@ -93,7 +98,7 @@ export async function enviarEmailBoasVindasComSenha(params: {
   senhaTemporaria: string;
 }): Promise<boolean> {
   const { to, senhaTemporaria } = params;
-  const appUrl = process.env.APP_URL ?? 'https://sutogas.com.br';
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
 
   const corpo = `
     <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Sua conta SutoGas está pronta 🎉</h1>
