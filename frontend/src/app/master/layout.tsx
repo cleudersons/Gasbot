@@ -27,7 +27,8 @@ export default async function MasterLayout({ children }: { children: React.React
         <form
           action={async () => {
             'use server';
-            await signOut({ redirectTo: '/login' });
+            const baseUrl = process.env.NEXTAUTH_URL ?? 'https://sutogas.com.br';
+            await signOut({ redirectTo: `${baseUrl}/login` });
           }}
           className="p-3 border-t border-gray-800"
         >
