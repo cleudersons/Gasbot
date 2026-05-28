@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { auth } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase-server';
 import { Crown } from 'lucide-react';
+import PerfilForm from './PerfilForm';
+import { perfilCompleto } from '@/lib/perfil';
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -39,7 +41,7 @@ export default async function MinhaContaPage() {
     ? await db
         .from('agencias')
         .select(
-          'nome, plano, status_conta, trial_inicio, trial_atendimentos, vencimento_plano, limite_atendimentos, programa_fundador, fundador_desconto_ate, whatsapp_dono, proxima_cobranca, recorrencia_ativa',
+          'nome, plano, status_conta, trial_inicio, trial_atendimentos, vencimento_plano, limite_atendimentos, programa_fundador, fundador_desconto_ate, whatsapp_dono, proxima_cobranca, recorrencia_ativa, nome_deposito, cidade, estado, cpf_cnpj',
         )
         .eq('id', agenciaId)
         .maybeSingle()
@@ -81,12 +83,21 @@ export default async function MinhaContaPage() {
       <section className="bg-white border border-gray-200 rounded-2xl p-6">
         <h2 className="text-lg font-semibold mb-4">Dados da conta</h2>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <Field label="Nome" value={nomeUsuario} />
+          <Field label="Titular" value={nomeUsuario} />
           <Field label="E-mail" value={emailUsuario} />
           <Field label="WhatsApp" value={ag?.whatsapp_dono ?? '—'} />
-          <Field label="Depósito" value={ag?.nome ?? '—'} />
         </dl>
       </section>
+
+      <PerfilForm
+        inicial={{
+          nome_deposito: ag?.nome_deposito ?? '',
+          cidade: ag?.cidade ?? '',
+          estado: ag?.estado ?? '',
+          cpf_cnpj: ag?.cpf_cnpj ?? '',
+        }}
+        completo={perfilCompleto(ag)}
+      />
 
       <section className="bg-white border border-gray-200 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">

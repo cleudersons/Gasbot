@@ -76,6 +76,10 @@ export default function HeaderActions({ ehFundador, userName }: Props) {
 
   async function marcarLida(n: Notificacao) {
     if (n.lida) return;
+    if (n.id.startsWith('virtual-')) {
+      // Notificação virtual (ex: perfil incompleto) — some sozinha quando a condição muda
+      return;
+    }
     try {
       await fetch(`/api/notificacoes/${n.id}/ler`, { method: 'POST' });
     } catch {

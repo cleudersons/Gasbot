@@ -11,10 +11,12 @@ import {
   Rocket,
   CreditCard,
   User,
+  AlertCircle,
 } from 'lucide-react';
 import TrialBanner from '@/components/TrialBanner';
 import Logo from '@/components/Logo';
 import HeaderActions from '@/components/HeaderActions';
+import { perfilCompleto } from '@/lib/perfil';
 
 export default async function DashboardLayout({
   children,
@@ -34,6 +36,7 @@ export default async function DashboardLayout({
   let mostrarInicio = false;
   let passosCompletos = 1; // conta criada
   let ehFundador = false;
+  let perfilOk = true;
 
   if (agenciaId) {
     const db = supabaseAdmin();
@@ -41,7 +44,7 @@ export default async function DashboardLayout({
       db
         .from('agencias')
         .select(
-          'status_conta, trial_inicio, trial_atendimentos, prompt_customizado, provider, criado_em, programa_fundador',
+          'status_conta, trial_inicio, trial_atendimentos, prompt_customizado, provider, criado_em, programa_fundador, nome_deposito, cidade, estado, cpf_cnpj',
         )
         .eq('id', agenciaId)
         .maybeSingle(),
@@ -59,6 +62,7 @@ export default async function DashboardLayout({
       promptOk = !!ag.prompt_customizado && ag.prompt_customizado.trim().length > 0;
       conexaoOk = !!ag.provider && ag.provider !== 'demo';
       ehFundador = !!ag.programa_fundador;
+      perfilOk = perfilCompleto(ag);
 
       const inicio = ag.trial_inicio ? new Date(ag.trial_inicio).getTime() : Date.now();
       const dias = (Date.now() - inicio) / (24 * 60 * 60 * 1000);
@@ -127,6 +131,22 @@ export default async function DashboardLayout({
           trialInicio={trialInicio}
           trialAtendimentos={trialAtendimentos}
         />
+        {!perfilOk && (
+          <Link
+            href="/dashboard/minha-conta"
+            className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between gap-3 hover:bg-amber-100 transition"
+          >
+            <div className="flex items-center gap-2 text-sm text-amber-900">
+              <AlertCircle size={16} className="text-amber-600 shrink-0" />
+              <span>
+                <strong>Complete seu perfil</strong> — nome do depósito, cidade, estado e CPF/CNPJ.
+              </span>
+            </div>
+            <span className="text-xs font-semibold text-amber-900 underline shrink-0">
+              Completar agora
+            </span>
+          </Link>
+        )}
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Painel SutoGas</h2>
           <HeaderActions ehFundador={ehFundador} userName={userName} />
