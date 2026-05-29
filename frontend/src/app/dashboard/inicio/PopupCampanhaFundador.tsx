@@ -11,7 +11,12 @@ interface Status {
   vagas_restantes: number;
 }
 
-export default function PopupCampanhaFundador() {
+interface Props {
+  // Quando true, segura o fetch até outro popup (ex.: BemVindoModal) fechar.
+  disabled?: boolean;
+}
+
+export default function PopupCampanhaFundador({ disabled = false }: Props) {
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState(false);
   const vagas = useVagasFundador(
@@ -19,6 +24,7 @@ export default function PopupCampanhaFundador() {
   );
 
   useEffect(() => {
+    if (disabled) return;
     (async () => {
       try {
         const res = await fetch('/api/fundador/popup', { cache: 'no-store' });
@@ -30,7 +36,7 @@ export default function PopupCampanhaFundador() {
         // silencioso — popup é opcional
       }
     })();
-  }, []);
+  }, [disabled]);
 
   async function fechar() {
     setOpen(false);

@@ -62,7 +62,7 @@ export default function InicioPage() {
       {showModal && (
         <BemVindoModal onClose={() => setShowModal(false)} />
       )}
-      <PopupCampanhaFundador />
+      <PopupCampanhaFundador disabled={showModal} />
       <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6">
         <h1 className="text-2xl font-bold mb-1">🎉 Bem-vindo ao SutoGas!</h1>
         <p className="text-gray-700 text-sm">
