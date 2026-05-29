@@ -77,25 +77,29 @@ export const TUTORIAIS: Tutorial[] = [
   {
     slug: 'zapi',
     passoKey: 'conexaoOk',
-    titulo: 'Conecte com Z-API',
-    subtitulo: 'Caminho mais rápido pra começar — leitura de QR Code',
+    titulo: 'Conectar seu WhatsApp',
+    subtitulo: 'Em 1 minuto: escaneia o QR Code e o agente começa a atender',
     // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
     passos: [
       {
-        titulo: 'Crie conta em Z-API.io',
-        texto: 'Acesse z-api.io, cria conta e gera uma instância nova. Pega o Instance ID e o Token.',
+        titulo: 'Acesse a tela Conexão',
+        texto: 'No menu lateral do painel SutoGas, clica em Conexão. O QR Code vai aparecer pronto pra escanear.',
       },
       {
-        titulo: 'Cole no painel SutoGas',
-        texto: 'No menu Conexão, escolhe Z-API, cola Instance ID e Token e clica em Conectar.',
+        titulo: 'Pegue o celular do depósito',
+        texto: 'Use o celular com o WhatsApp do depósito (o número que seus clientes mandam mensagem). Abra o app.',
+      },
+      {
+        titulo: 'Abra os Dispositivos Conectados',
+        texto: 'No WhatsApp toque nos três pontinhos (⋮) → Dispositivos conectados → Conectar um dispositivo.',
       },
       {
         titulo: 'Escaneie o QR Code',
-        texto: 'O QR Code aparece na tela. Abre o WhatsApp Web no celular do depósito e escaneia.',
+        texto: 'Aponta a câmera do celular pro QR Code que aparece na tela do SutoGas. Em segundos conecta.',
       },
       {
-        titulo: 'Pronto — agente ativo',
-        texto: 'A partir desse momento, qualquer mensagem que chegar no número conectado vai pro agente.',
+        titulo: 'Pronto — agente atendendo 24/7',
+        texto: 'A partir desse momento, qualquer mensagem que chegar no seu WhatsApp do depósito vai ser atendida pelo agente automaticamente.',
       },
     ],
     voltarPara: { href: '/dashboard/conexao', label: 'Voltar para Conexão' },
