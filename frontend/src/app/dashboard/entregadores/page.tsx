@@ -80,6 +80,21 @@ export default function EntregadoresPage() {
     }
   }
 
+  async function excluir(e: Entregador) {
+    const ok = window.confirm(
+      `Excluir "${e.nome}" permanentemente?\n\nSe ele tiver pedidos no histórico, o sistema vai sugerir Desativar.`,
+    );
+    if (!ok) return;
+    setError(null);
+    const res = await fetch(`/api/entregadores?id=${e.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      setError(json?.error ?? `HTTP ${res.status}`);
+    } else {
+      fetchEntregadores();
+    }
+  }
+
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault();
     setSaving(true);
@@ -222,6 +237,13 @@ export default function EntregadoresPage() {
                           <MapPin size={14} /> Gerenciar zonas
                         </button>
                       )}
+                      <button
+                        onClick={() => excluir(e)}
+                        className="text-sm text-red-600 hover:underline inline-flex items-center gap-1"
+                        title="Excluir permanentemente (só se não tiver pedidos)"
+                      >
+                        <Trash2 size={14} /> Excluir
+                      </button>
                     </div>
                   </td>
                 </tr>

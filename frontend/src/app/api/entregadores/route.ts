@@ -146,3 +146,44 @@ export async function PATCH(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(req: Request) {
+  const agenciaId = await requireAgenciaId();
+  if (isErrorResponse(agenciaId)) return agenciaId;
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+
+  const db = supabaseAdmin();
+
+  // Bloqueia exclusão se houver pedidos vinculados (preserva histórico).
+  // Quem quer "limpar a lista" deve usar Desativar.
+  const { count } = await db
+    .from('pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('agencia_id', agenciaId)
+    .eq('entregador_id', id);
+
+  if ((count ?? 0) > 0) {
+    return NextResponse.json(
+      {
+        error:
+          'Esse entregador tem pedidos no histórico e não pode ser apagado. Use "Desativar" para parar de receber pedidos sem perder o histórico.',
+      },
+      { status: 409 },
+    );
+  }
+
+  // Limpa zonas vinculadas (não há ON DELETE CASCADE garantido)
+  await db.from('entregador_zonas').delete().eq('entregador_id', id);
+
+  const { error } = await db
+    .from('entregadores')
+    .delete()
+    .eq('id', id)
+    .eq('agencia_id', agenciaId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
