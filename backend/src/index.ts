@@ -495,10 +495,23 @@ async function processarMensagemRecebida(
         }
 
         mensagemCliente = removerTokenPedido(reply);
-        if (!mensagemCliente) {
-          mensagemCliente = dentroHorario
-            ? '✅ Pedido confirmado! Já avisei o entregador. 🛵'
-            : '✅ Pedido agendado! Vou disparar para o entregador assim que abrirmos.';
+
+        if (!dentroHorario) {
+          // Sobrescreve QUALQUER texto que a IA tenha colocado: ela tende a dizer
+          // "entregador a caminho" mesmo agendado, confundindo o cliente.
+          const tz = agencia.timezone ?? 'America/Sao_Paulo';
+          const horaAbertura = abertura
+            ? abertura.toLocaleString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: tz,
+              })
+            : '';
+          mensagemCliente = horaAbertura
+            ? `✅ Pedido agendado pra ${horaAbertura}! Te aviso quando o entregador estiver a caminho.`
+            : '✅ Pedido agendado pra abertura! Te aviso quando o entregador sair.';
+        } else if (!mensagemCliente) {
+          mensagemCliente = '✅ Pedido confirmado! Já avisei o entregador. 🛵';
         }
       }
     }
