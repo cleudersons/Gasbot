@@ -23,7 +23,7 @@ export const TUTORIAIS: Tutorial[] = [
     passoKey: 'promptOk',
     titulo: 'Personalize seu agente',
     subtitulo: 'Configure o cérebro da sua IA com os dados do seu depósito',
-    // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
+    youtubeId: 'yEYz8XX3eOw',
     passos: [
       {
         titulo: 'Acesse Configurações',
@@ -53,7 +53,7 @@ export const TUTORIAIS: Tutorial[] = [
     passoKey: 'entregadoresOk',
     titulo: 'Cadastre seus entregadores',
     subtitulo: 'Adicione quem vai receber os pedidos no WhatsApp',
-    // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
+    youtubeId: 'uDF3LedHlM4',
     passos: [
       {
         titulo: 'Acesse Entregadores',
@@ -78,54 +78,24 @@ export const TUTORIAIS: Tutorial[] = [
     slug: 'zapi',
     passoKey: 'conexaoOk',
     titulo: 'Conectar seu WhatsApp',
-    subtitulo: 'Em 1 minuto: escaneia o QR Code e o agente começa a atender',
+    subtitulo: 'Os 2 jeitos de ligar o WhatsApp do depósito ao SutoGas: Z-API (QR Code) ou Meta API (oficial)',
     // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
     passos: [
       {
-        titulo: 'Acesse a tela Conexão',
-        texto: 'No menu lateral do painel SutoGas, clica em Conexão. O QR Code vai aparecer pronto pra escanear.',
+        titulo: 'Caminho 1 — Z-API (mais rápido, leitura de QR Code)',
+        texto: 'Recomendado pra começar. Acesse Conexão no menu, escolha Z-API, pegue o celular do depósito, abra o WhatsApp → ⋮ → Dispositivos conectados → Conectar um dispositivo, e escaneie o QR Code que aparece. Em segundos o agente está atendendo.',
       },
       {
-        titulo: 'Pegue o celular do depósito',
-        texto: 'Use o celular com o WhatsApp do depósito (o número que seus clientes mandam mensagem). Abra o app.',
+        titulo: 'Caminho 2 — Meta API (oficial, mais estável)',
+        texto: 'Use quando quiser a API oficial da Meta. Em developers.facebook.com, abra ou crie um app de WhatsApp Business. Copie o Phone Number ID em WhatsApp → API Setup. Em Business Settings → System Users, gere um token com permissão whatsapp_business_messaging. Cole os dois no painel SutoGas → Conexão → Meta API.',
       },
       {
-        titulo: 'Abra os Dispositivos Conectados',
-        texto: 'No WhatsApp toque nos três pontinhos (⋮) → Dispositivos conectados → Conectar um dispositivo.',
-      },
-      {
-        titulo: 'Escaneie o QR Code',
-        texto: 'Aponta a câmera do celular pro QR Code que aparece na tela do SutoGas. Em segundos conecta.',
+        titulo: 'Configure o webhook (só Meta API)',
+        texto: 'No painel da Meta, configure o webhook apontando pra URL que o SutoGas mostra ao salvar as credenciais. Esse é o caminho que a Meta usa pra avisar o SutoGas de cada nova mensagem.',
       },
       {
         titulo: 'Pronto — agente atendendo 24/7',
-        texto: 'A partir desse momento, qualquer mensagem que chegar no seu WhatsApp do depósito vai ser atendida pelo agente automaticamente.',
-      },
-    ],
-    voltarPara: { href: '/dashboard/conexao', label: 'Voltar para Conexão' },
-  },
-  {
-    slug: 'meta-api',
-    passoKey: 'conexaoOk',
-    titulo: 'Conecte com Meta API (oficial)',
-    subtitulo: 'API oficial da Meta — mais estável, requer aprovação',
-    // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
-    passos: [
-      {
-        titulo: 'Acesse developers.facebook.com',
-        texto: 'Cria ou abre seu app de WhatsApp Business.',
-      },
-      {
-        titulo: 'Copie o Phone Number ID',
-        texto: 'Em WhatsApp → API Setup, copia o Phone Number ID do número que você conectou.',
-      },
-      {
-        titulo: 'Gere um token permanente',
-        texto: 'Em Business Settings → System Users, cria um usuário de sistema com permissão whatsapp_business_messaging e gera o token.',
-      },
-      {
-        titulo: 'Cole no painel SutoGas',
-        texto: 'Na tela Conexão, escolha Meta, cole Phone Number ID e Token e clique em Conectar.',
+        texto: 'Independente do caminho, depois de conectado o agente começa a responder seus clientes na hora. Pode testar mandando uma mensagem do seu celular pessoal pro número do depósito.',
       },
     ],
     voltarPara: { href: '/dashboard/conexao', label: 'Voltar para Conexão' },
