@@ -122,3 +122,91 @@ export async function enviarEmailBoasVindasComSenha(params: {
     html: templateBase('Bem-vindo ao SutoGas', corpo),
   });
 }
+
+// Disparado quando webhook do Asaas confirma pagamento de cliente JÁ existente
+// (renovação ou upgrade — não cria conta nova).
+export async function enviarEmailRenovacaoConfirmada(params: {
+  to: string;
+  plano: string;
+  vencimento: Date;
+}): Promise<boolean> {
+  const { to, plano, vencimento } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+  const venceStr = vencimento.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  });
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Pagamento confirmado ✅</h1>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      Recebemos seu pagamento e seu plano <strong>${plano}</strong> está renovado.
+      Tudo continua funcionando normalmente — o agente segue atendendo seus clientes 24/7.
+    </p>
+    <div style="background:#F8F5F0;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:0 0 20px;">
+      <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">PLANO ATUAL</p>
+      <p style="margin:0 0 12px;font-weight:600;color:#1A1A2E;">${plano}</p>
+      <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">PRÓXIMO VENCIMENTO</p>
+      <p style="margin:0;font-weight:600;color:#1A1A2E;">${venceStr}</p>
+    </div>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${appUrl}/dashboard/minha-conta" style="display:inline-block;background:#F5721B;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Ver minha conta
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">
+      Obrigado por continuar com a gente!
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: 'SutoGas — Pagamento confirmado',
+    html: templateBase('Renovação confirmada', corpo),
+  });
+}
+
+// Disparado pelo job D+2 fundador para convidar a participar do feedback.
+export async function enviarEmailFeedbackFundador(params: {
+  to: string;
+  token: string;
+}): Promise<boolean> {
+  const { to, token } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+  const linkPublico = `${appUrl}/f/${token}`;
+  const linkLogado = `${appUrl}/dashboard/feedback-fundador`;
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">👑 Programa Premium Fundador</h1>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      Você está há 2 dias no Premium Fundador e queremos saber: como tem sido a experiência?
+    </p>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      Pra fechar sua participação no programa, você tem <strong>15 dias</strong> pra:
+    </p>
+    <ul style="margin:0 0 20px;padding-left:20px;line-height:1.7;color:#374151;font-size:14px;">
+      <li>Responder uma pesquisa rápida (2 minutos)</li>
+      <li>Indicar 2 contatos de outros depósitos</li>
+      <li>Enviar um vídeo curto de depoimento</li>
+    </ul>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${linkLogado}" style="display:inline-block;background:#F5721B;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Responder agora
+      </a>
+    </div>
+    <p style="margin:0 0 8px;font-size:13px;line-height:1.55;color:#6b7280;">
+      Sem login? Use este link público:
+    </p>
+    <p style="margin:0;font-size:12px;line-height:1.55;color:#9ca3af;word-break:break-all;">
+      ${linkPublico}
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: '👑 SutoGas — Sua participação no Programa Fundador',
+    html: templateBase('Programa Fundador', corpo),
+  });
+}

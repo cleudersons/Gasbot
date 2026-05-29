@@ -1,9 +1,10 @@
 import { getSupabase } from '../lib/supabase';
+import { enviarEmailFeedbackFundador } from '../lib/email';
 
 // Roda a cada 1h. Pra cada agência fundadora que comprou há >= 2 dias
 // e ainda não recebeu a notificação de feedback, cria a notificação,
-// define o prazo de 15 dias e marca o envio. Email é disparado em paralelo
-// pela Sutofly/Mailrelay — aqui só registramos o sininho no dashboard.
+// define o prazo de 15 dias e marca o envio. Também dispara email
+// transacional via Resend com link pro feedback (público + logado).
 const INTERVAL_MS = 60 * 60 * 1000;
 
 const DIAS_APOS_COMPRA = 2;
@@ -71,6 +72,26 @@ async function processar(): Promise<void> {
           fundador_feedback_prazo: prazo.toISOString(),
         })
         .eq('id', ag.id);
+
+      // Email transacional pro dono (lookup do usuário pela agencia_id).
+      try {
+        const { data: usuario } = await db
+          .from('usuarios')
+          .select('email')
+          .eq('agencia_id', ag.id)
+          .eq('is_master', false)
+          .eq('ativo', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (usuario?.email && token) {
+          enviarEmailFeedbackFundador({ to: usuario.email, token }).catch((err) => {
+            console.error('[job:fundador-feedback] falha email:', err?.message ?? err);
+          });
+        }
+      } catch (err: any) {
+        console.error('[job:fundador-feedback] erro ao buscar usuario para email:', err?.message ?? err);
+      }
 
       console.log(`[job:fundador-feedback] notificação criada para agência ${ag.id}`);
     } catch (err: any) {
