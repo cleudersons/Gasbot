@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { X, MessageSquareText, Users, Plug, FlaskConical, Rocket } from 'lucide-react';
 
 interface Props {
-  nome: string;
   onClose: () => void;
 }
 
@@ -15,7 +14,7 @@ const PASSOS = [
   { icon: FlaskConical, titulo: 'Faça um pedido teste', texto: 'Confirme que tudo funciona' },
 ];
 
-export default function BemVindoModal({ nome, onClose }: Props) {
+export default function BemVindoModal({ onClose }: Props) {
   const [salvando, setSalvando] = useState(false);
 
   async function marcarVisto() {
@@ -43,7 +42,7 @@ export default function BemVindoModal({ nome, onClose }: Props) {
             <Rocket size={26} className="text-white" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold mb-1">
-            Bem-vindo{nome ? `, ${nome.split(' ')[0]}` : ''}! 🎉
+            Bem-vindo ao SutoGas! 🎉
           </h2>
           <p className="text-gray-300 text-sm sm:text-base">
             Em 4 passos seu depósito estará atendendo no piloto automático.

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Circle, MessageSquareText, Users, Plug, FlaskConical, Copy, PlayCircle } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PopupCampanhaFundador from './PopupCampanhaFundador';
 import BemVindoModal from './BemVindoModal';
@@ -31,7 +30,6 @@ function formatDemo(raw: string) {
 }
 
 export default function InicioPage() {
-  const { data: session } = useSession();
   const [data, setData] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -62,10 +60,7 @@ export default function InicioPage() {
   return (
     <div className="max-w-3xl space-y-6">
       {showModal && (
-        <BemVindoModal
-          nome={session?.user?.name ?? ''}
-          onClose={() => setShowModal(false)}
-        />
+        <BemVindoModal onClose={() => setShowModal(false)} />
       )}
       <PopupCampanhaFundador />
       <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6">
