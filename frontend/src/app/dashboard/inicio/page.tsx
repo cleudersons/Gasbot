@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Circle, MessageSquareText, Users, Plug, FlaskConical, Copy } from 'lucide-react';
+import { Check, Circle, MessageSquareText, Users, Plug, FlaskConical, Copy, PlayCircle } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PopupCampanhaFundador from './PopupCampanhaFundador';
+import BemVindoModal from './BemVindoModal';
 
 interface Status {
   passos: {
@@ -16,6 +18,7 @@ interface Status {
   };
   completos: number;
   total: number;
+  viu_tutorial_inicial?: boolean;
 }
 
 const DEMO = process.env.NEXT_PUBLIC_DEMO_WHATSAPP ?? '';
@@ -28,16 +31,21 @@ function formatDemo(raw: string) {
 }
 
 export default function InicioPage() {
+  const { data: session } = useSession();
   const [data, setData] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/onboarding', { cache: 'no-store' });
         const json = await res.json();
-        if (res.ok) setData(json as Status);
+        if (res.ok) {
+          setData(json as Status);
+          if (!json.viu_tutorial_inicial) setShowModal(true);
+        }
       } finally {
         setLoading(false);
       }
@@ -53,6 +61,12 @@ export default function InicioPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
+      {showModal && (
+        <BemVindoModal
+          nome={session?.user?.name ?? ''}
+          onClose={() => setShowModal(false)}
+        />
+      )}
       <PopupCampanhaFundador />
       <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6">
         <h1 className="text-2xl font-bold mb-1">🎉 Bem-vindo ao SutoGas!</h1>
@@ -90,6 +104,7 @@ export default function InicioPage() {
           description="Edite o prompt com o nome do seu depósito e produtos."
           href="/dashboard/configuracoes"
           cta="Personalizar"
+          tutorialHref="/tutorial/prompt"
         />
         <Step
           n={3}
@@ -99,6 +114,7 @@ export default function InicioPage() {
           description="Adicione pelo menos 1 entregador com WhatsApp."
           href="/dashboard/entregadores"
           cta="Cadastrar"
+          tutorialHref="/tutorial/entregadores"
         />
         <Step
           n={4}
@@ -108,6 +124,7 @@ export default function InicioPage() {
           description="Escolha como quer receber os pedidos (demo, Z-API ou Meta)."
           href="/dashboard/conexao"
           cta="Conectar"
+          tutorialHref="/tutorial/zapi"
         />
         <Step
           n={5}
@@ -115,6 +132,7 @@ export default function InicioPage() {
           icon={<FlaskConical size={18} />}
           title="Faça um pedido de teste"
           description="Mande uma mensagem para o número demo e veja funcionando."
+          tutorialHref="/tutorial/teste"
           extra={
             DEMO ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -167,6 +185,7 @@ function Step({
   href,
   cta,
   extra,
+  tutorialHref,
 }: {
   n: number;
   done: boolean;
@@ -176,6 +195,7 @@ function Step({
   href?: string;
   cta?: string;
   extra?: React.ReactNode;
+  tutorialHref?: string;
 }) {
   return (
     <div
@@ -201,6 +221,15 @@ function Step({
           )}
         </div>
         <p className="text-sm text-gray-600">{description}</p>
+        {tutorialHref && (
+          <Link
+            href={tutorialHref}
+            className="inline-flex items-center gap-1 mt-2 text-xs text-orange-600 hover:text-orange-700 hover:underline"
+          >
+            <PlayCircle size={13} />
+            Ver tutorial
+          </Link>
+        )}
         {extra}
       </div>
       {href && !done && (

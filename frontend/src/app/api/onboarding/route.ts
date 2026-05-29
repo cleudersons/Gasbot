@@ -11,7 +11,7 @@ export async function GET() {
   const [{ data: ag }, { count: entCount }] = await Promise.all([
     db
       .from('agencias')
-      .select('prompt_customizado, provider, trial_atendimentos, trial_inicio, status_conta')
+      .select('prompt_customizado, provider, trial_atendimentos, trial_inicio, status_conta, viu_tutorial_inicial')
       .eq('id', agenciaId)
       .single(),
     db
@@ -43,5 +43,6 @@ export async function GET() {
     trial_inicio: ag?.trial_inicio ?? null,
     status_conta: ag?.status_conta ?? 'ativo',
     provider: ag?.provider ?? null,
+    viu_tutorial_inicial: !!ag?.viu_tutorial_inicial,
   });
 }
