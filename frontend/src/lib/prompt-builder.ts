@@ -16,6 +16,7 @@ export interface PromptConfig {
   pix_titular?: string;       // nome do titular da conta que recebe
   marca_gas?: string;         // ex.: Supergasbras Dourado, Liquigás, Ultragaz
   taxa_entrega?: string;      // ex.: R$ 15 — programa Gás do Povo
+  whatsapp_alternativo?: string; // p/ "Gás do Povo" e "Vale Gás" — cliente é redirecionado
   tom: Tom;
 }
 
@@ -268,6 +269,7 @@ export function buildPrompt(c: PromptConfig): string {
   const pixTitular = c.pix_titular?.trim() || '';
   const marcaGas = c.marca_gas?.trim() || '';
   const taxaEntrega = c.taxa_entrega?.trim() || '';
+  const whatsAlternativo = c.whatsapp_alternativo?.trim() || '';
   const tom = DESCRICAO_TOM[c.tom] ?? DESCRICAO_TOM.simpatico;
 
   const partes: string[] = [];
@@ -358,6 +360,26 @@ export function buildPrompt(c: PromptConfig): string {
         ]
           .filter(Boolean)
           .join('\n'),
+      ),
+    );
+  }
+
+  if (whatsAlternativo) {
+    partes.push(
+      bloco(
+        'GÁS DO POVO / VALE GÁS (WhatsApp alternativo):',
+        [
+          `Número alternativo: ${whatsAlternativo}`,
+          '',
+          'Quando o cliente perguntar a forma de pagamento, inclua nas opções: "Gás do Povo" e "Vale Gás" — além das formas padrão.',
+          '',
+          'Se o cliente disser que vai pagar com Gás do Povo OU com Vale Gás:',
+          '1) NÃO emita PEDIDO_CONFIRMADO. Não tente coletar endereço nem confirmar pedido.',
+          '2) Responda em DUAS mensagens separadas por [NOVA_MENSAGEM]:',
+          '   Mensagem 1 (frase amigável): "Para retirada com Gás do Povo / Vale Gás chame a gente no nosso outro número!"',
+          `   Mensagem 2 (só o número, sozinho, sem aspas, sem markdown, sem emoji): ${whatsAlternativo}`,
+          '3) Encerre amigavelmente com um agradecimento curto.',
+        ].join('\n'),
       ),
     );
   }

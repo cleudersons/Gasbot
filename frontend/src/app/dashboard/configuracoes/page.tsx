@@ -454,6 +454,22 @@ export default function ConfiguracoesPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
+                WhatsApp alternativo (Gás do Povo / Vale Gás){' '}
+                <span className="text-gray-400">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={promptConfig.whatsapp_alternativo ?? ''}
+                onChange={(e) => setField('whatsapp_alternativo', e.target.value)}
+                placeholder="Ex.: +55 77 8803-2024"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cliente que escolher pagar com Gás do Povo ou Vale Gás vai ser direcionado pra esse número fazer a retirada por lá. Deixe em branco se você não trabalha com essas formas.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
                 Alguma promoção ou brinde? <span className="text-gray-400">(opcional)</span>
               </label>
               <textarea
