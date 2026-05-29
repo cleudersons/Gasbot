@@ -30,6 +30,11 @@ import {
 } from './services/entregadores.service';
 import * as whatsappService from './services/whatsapp/whatsapp.service';
 import { getQRCode, getStatus } from './services/qrcode.service';
+import {
+  classificarComprovante,
+  resolverImageUrlMeta,
+  downloadImagemMetaComoBase64,
+} from './services/image-classifier.service';
 import { enviarRelatorio } from './services/relatorio.service';
 import {
   resolverAgenciaFromMeta,
@@ -93,6 +98,59 @@ app.get('/webhook', (req, res) => {
   }
   return res.sendStatus(403);
 });
+
+/**
+ * Processa imagem recebida do cliente: classifica se é comprovante de pagamento.
+ * Se for, avisa o dono via WhatsApp e responde o cliente. Se não, orienta o
+ * cliente a usar texto. Chamada pelos webhooks antes do fluxo normal.
+ */
+async function processarImagemRecebida(
+  agencia: Agencia,
+  from: string,
+  imageInput: string,
+): Promise<void> {
+  const agenciaId = agencia.id;
+  console.log(`[imagem] cliente ${from} enviou imagem → classificando`);
+
+  const isComprovante = await classificarComprovante(imageInput);
+
+  if (isComprovante) {
+    console.log(`[imagem] classificado como COMPROVANTE — avisando dono`);
+    if (agencia.whatsapp_dono) {
+      try {
+        await whatsappService.sendMessage(
+          agenciaId,
+          agencia.whatsapp_dono,
+          `📸 *Comprovante recebido*\n\nCliente: ${from}\nAbra a conversa pra ver o comprovante e confirmar o pagamento.`,
+        );
+      } catch (err: any) {
+        console.error('[imagem] falha ao avisar dono:', err?.message ?? err);
+      }
+    } else {
+      console.warn('[imagem] whatsapp_dono nao configurado — comprovante nao foi notificado');
+    }
+    try {
+      await whatsappService.sendMessage(
+        agenciaId,
+        from,
+        '✅ Comprovante recebido! Já avisei aqui e confirmamos com você em breve. Obrigado!',
+      );
+    } catch (err: any) {
+      console.error('[imagem] falha ao responder cliente:', err?.message ?? err);
+    }
+  } else {
+    console.log(`[imagem] classificado como NAO-comprovante — orientando cliente`);
+    try {
+      await whatsappService.sendMessage(
+        agenciaId,
+        from,
+        '📷 Por aqui só consigo trabalhar com texto. Pode escrever o que precisa? 😊',
+      );
+    } catch (err: any) {
+      console.error('[imagem] falha ao responder cliente:', err?.message ?? err);
+    }
+  }
+}
 
 /**
  * Núcleo do processamento de uma mensagem recebida — chamado pelos webhooks
@@ -600,9 +658,7 @@ app.post('/webhook', async (req, res) => {
     if (!message) return;
 
     const from: string = message.from;
-    const text: string | undefined =
-      message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
-    if (!from || !text) return;
+    if (!from) return;
     if (from.endsWith('@g.us') || from.includes('-')) {
       console.log('[webhook meta] mensagem de grupo ignorada');
       return;
@@ -617,6 +673,23 @@ app.post('/webhook', async (req, res) => {
       );
       return;
     }
+
+    // Imagem recebida → classificar e tratar
+    const mediaId: string | undefined = message.image?.id;
+    if (mediaId && agencia.whatsapp_token) {
+      const url = await resolverImageUrlMeta(mediaId, agencia.whatsapp_token);
+      const dataUrl = url
+        ? await downloadImagemMetaComoBase64(url, agencia.whatsapp_token)
+        : null;
+      if (dataUrl) {
+        await processarImagemRecebida(agencia, from, dataUrl);
+      }
+      return;
+    }
+
+    const text: string | undefined =
+      message.text?.body ?? message.button?.text ?? message.interactive?.button_reply?.title;
+    if (!text) return;
 
     await processarMensagemRecebida(agencia, from, text);
   } catch (err: any) {
@@ -642,13 +715,7 @@ app.post('/webhook/zapi', async (req, res) => {
 
     const instanceId: string | undefined = body.instanceId;
     const from: string | undefined = body.phone;
-    const text: string | undefined =
-      body.text?.message ??
-      body.buttonsResponseMessage?.message ??
-      body.listResponseMessage?.message ??
-      body.message;
-
-    if (!from || !text) return;
+    if (!from) return;
 
     const agencia = await resolverAgenciaFromZapi(instanceId, from);
     if (!agencia) {
@@ -657,6 +724,20 @@ app.post('/webhook/zapi', async (req, res) => {
       );
       return;
     }
+
+    // Imagem recebida (Z-API entrega URL pública direta)
+    const imageUrl: string | undefined = body.image?.imageUrl;
+    if (imageUrl) {
+      await processarImagemRecebida(agencia, from, imageUrl);
+      return;
+    }
+
+    const text: string | undefined =
+      body.text?.message ??
+      body.buttonsResponseMessage?.message ??
+      body.listResponseMessage?.message ??
+      body.message;
+    if (!text) return;
 
     await processarMensagemRecebida(agencia, from, text);
   } catch (err: any) {
