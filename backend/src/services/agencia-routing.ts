@@ -19,12 +19,21 @@ export interface Agencia {
   sla_minutos: number | null;
   plano_slug: string | null;
   limite_atendimentos: number | null;
+  atendimento_ativo: boolean | null;
+  horario_inicio: string | null;
+  horario_fim: string | null;
+  timezone: string | null;
+  distribuicao_modo: string | null;
+  distribuicao_ultimo_entregador: string | null;
+  whatsapp_dono: string | null;
 }
 
 const AGENCIA_COLUMNS =
   'id, nome, provider, phone_number_id, whatsapp_token, zapi_instance_id, zapi_token, zapi_client_token, ' +
   'status_conta, plano, trial_inicio, trial_atendimentos, prompt_customizado, ' +
-  'demo_cliente_whatsapp, agente_ativo, sla_minutos, plano_slug, limite_atendimentos';
+  'demo_cliente_whatsapp, agente_ativo, sla_minutos, plano_slug, limite_atendimentos, ' +
+  'atendimento_ativo, horario_inicio, horario_fim, timezone, ' +
+  'distribuicao_modo, distribuicao_ultimo_entregador, whatsapp_dono';
 
 function isDemoMeta(phoneNumberId: string | null | undefined): boolean {
   const demo = process.env.META_DEMO_PHONE_NUMBER_ID;
