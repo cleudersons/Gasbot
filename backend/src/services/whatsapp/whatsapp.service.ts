@@ -57,5 +57,25 @@ export async function sendMessage(agenciaId: string, to: string, message: string
     return;
   }
 
+  // Provider 'demo' — agências criadas pelo fluxo de trial demo. Usam as
+  // credenciais Meta globais do servidor (mesmo número que recebeu a mensagem).
+  if (provider === 'demo') {
+    const phoneNumberId =
+      process.env.META_DEMO_PHONE_NUMBER_ID?.trim() ??
+      process.env.META_PHONE_NUMBER_ID?.trim();
+    const accessToken =
+      process.env.META_DEMO_ACCESS_TOKEN?.trim() ??
+      process.env.META_ACCESS_TOKEN?.trim();
+
+    if (!phoneNumberId || !accessToken) {
+      throw new Error(
+        'Demo: META_PHONE_NUMBER_ID/META_ACCESS_TOKEN ausentes nas env vars',
+      );
+    }
+
+    await metaProvider.sendMessage(phoneNumberId, accessToken, to, message);
+    return;
+  }
+
   throw new Error(`Provider WhatsApp desconhecido: ${provider}`);
 }
