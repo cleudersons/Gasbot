@@ -226,8 +226,8 @@ export default function SimuladorChat() {
 
   return (
     <>
-      {/* Desktop: lateral fixa direita */}
-      <div className="hidden xl:block fixed right-16 top-24 w-[360px] h-[600px] z-20">
+      {/* Desktop: lateral fixa, deslocada pra mais perto do conteúdo */}
+      <div className="hidden xl:block fixed right-40 top-24 w-[360px] h-[600px] z-20">
         <ChatBox
           messages={messages}
           loading={loading}
