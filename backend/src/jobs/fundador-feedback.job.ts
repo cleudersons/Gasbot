@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { getSupabase } from '../lib/supabase';
 import { enviarEmailFeedbackFundador } from '../lib/email';
 

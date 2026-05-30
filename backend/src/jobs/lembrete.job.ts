@@ -113,7 +113,18 @@ async function processarPreditivos(): Promise<void> {
       });
       console.log(`[job] Lembrete preditivo enviado para ${c.whatsapp}`);
     } catch (err: any) {
-      console.error(`[job:preditivo] falha em ${c.whatsapp}:`, err?.message ?? err);
+      // Z-API/Meta desconectado é caso esperado quando o cliente parou de pagar
+      // ou ainda não conectou. Log silencioso pra não poluir.
+      const msg = err?.response?.data?.error ?? err?.message ?? String(err);
+      const ehDesconectado =
+        msg.includes('disconnected') ||
+        msg.includes('Enqueue message is disabled') ||
+        err?.response?.status === 400;
+      if (ehDesconectado) {
+        console.warn(`[job:preditivo] pulando ${c.whatsapp} (WhatsApp desconectado na agência)`);
+      } else {
+        console.error(`[job:preditivo] falha em ${c.whatsapp}:`, msg);
+      }
     }
   }
 }
