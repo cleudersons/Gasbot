@@ -642,6 +642,44 @@ async function processarMensagemRecebida(
         await whatsappService.sendMessage(agenciaId, from, parte);
       }
     }
+
+    // Card oficial de PIX via Z-API quando configurado.
+    // O prompt em modo card já instrui a IA a NÃO incluir a chave no texto,
+    // então aqui só completamos enviando o card.
+    if (
+      parsed &&
+      parsed.formaPagamento?.toLowerCase() === 'pix' &&
+      (agencia as any).prompt_config?.pix_automatico &&
+      (agencia as any).prompt_config?.pix_tipo_chave &&
+      (agencia as any).prompt_config?.pix_chave
+    ) {
+      try {
+        const cfg = (agencia as any).prompt_config;
+        const enviou = await whatsappService.sendPixCard(agenciaId, from, {
+          pixKey: cfg.pix_chave,
+          pixKeyType: cfg.pix_tipo_chave,
+          merchantName: cfg.pix_titular ?? cfg.deposito ?? 'Depósito',
+          value: parsed.valorTotal ?? undefined,
+        });
+        if (!enviou) {
+          // Fallback texto: 2 mensagens com a chave (provedor não suporta card)
+          const titular = cfg.pix_titular ?? cfg.deposito ?? '';
+          const valor =
+            parsed.valorTotal != null
+              ? parsed.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+              : '';
+          await whatsappService.sendMessage(
+            agenciaId,
+            from,
+            `Chave Pix${titular ? ` (${titular})` : ''}${valor ? ` — Valor: ${valor}` : ''}:`,
+          );
+          await whatsappService.sendMessage(agenciaId, from, cfg.pix_chave);
+        }
+      } catch (err: any) {
+        console.error('[webhook] falha ao enviar PIX:', err?.message ?? err);
+      }
+    }
+
     console.log(`[webhook] Resposta enviada para ${from}`);
   } catch (err: any) {
     console.error('[webhook] Erro:', err?.response?.data ?? err?.message ?? err);

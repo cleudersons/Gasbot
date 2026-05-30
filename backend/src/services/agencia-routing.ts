@@ -31,7 +31,7 @@ export interface Agencia {
 
 const AGENCIA_COLUMNS =
   'id, nome, provider, phone_number_id, whatsapp_token, zapi_instance_id, zapi_token, zapi_client_token, ' +
-  'status_conta, plano, trial_inicio, trial_atendimentos, prompt_customizado, ' +
+  'status_conta, plano, trial_inicio, trial_atendimentos, prompt_customizado, prompt_config, ' +
   'demo_cliente_whatsapp, agente_ativo, sla_minutos, plano_slug, limite_atendimentos, ' +
   'atendimento_ativo, horario_inicio, horario_fim, timezone, ' +
   'distribuicao_modo, distribuicao_ultimo_entregador, whatsapp_dono';

@@ -18,6 +18,7 @@ export interface PromptConfig {
   taxa_entrega?: string;      // ex.: R$ 15 — programa Gás do Povo
   whatsapp_alternativo?: string; // p/ "Gás do Povo" e "Vale Gás" — cliente é redirecionado
   pix_automatico?: boolean;   // true = manda chave PIX automaticamente quando pagamento for PIX
+  pix_tipo_chave?: 'cnpj' | 'cpf' | 'email' | 'telefone' | 'aleatoria';
   tom: Tom;
 }
 
@@ -352,15 +353,37 @@ export function buildPrompt(c: PromptConfig): string {
 
   if (pixChave) {
     const pixAuto = !!c.pix_automatico;
+    const tipoChave = c.pix_tipo_chave;
+    // Modo "card": sistema envia o PIX como card oficial após PEDIDO_CONFIRMADO,
+    // a IA não deve incluir a chave no texto. Só vale quando tipo está configurado.
+    const cardMode = pixAuto && !!tipoChave;
+
+    let instrucao: string;
+    if (cardMode) {
+      instrucao =
+        'IMPORTANTE: o sistema vai enviar a chave PIX automaticamente em um card oficial ' +
+        'do WhatsApp após você confirmar o pedido. NÃO inclua a chave PIX no seu texto, ' +
+        'NÃO use [NOVA_MENSAGEM] nesse caso. Apenas confirme o pedido normalmente.';
+    } else if (pixAuto) {
+      instrucao =
+        'IMPORTANTE: SEMPRE que o cliente escolher pagar com PIX (mesmo sem pedir ' +
+        'explicitamente a chave), envie a chave proativamente em duas mensagens separadas ' +
+        'por [NOVA_MENSAGEM]. Mensagem 1: contexto curto com titular e valor total. ' +
+        'Mensagem 2: SÓ a chave, sozinha, sem aspas, sem markdown, sem emoji.';
+    } else {
+      instrucao =
+        'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie em ' +
+        'duas mensagens separadas por [NOVA_MENSAGEM]: uma de contexto (titular + valor) ' +
+        'e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp.';
+    }
+
     partes.push(
       bloco(
         'CHAVE PIX:',
         [
           `Chave: ${pixChave}`,
           pixTitular ? `Titular: ${pixTitular}` : '',
-          pixAuto
-            ? 'IMPORTANTE: SEMPRE que o cliente escolher pagar com PIX (mesmo sem pedir explicitamente a chave), envie a chave proativamente em duas mensagens separadas por [NOVA_MENSAGEM]. Mensagem 1: contexto curto com titular e valor total. Mensagem 2: SÓ a chave, sozinha, sem aspas, sem markdown, sem emoji.'
-            : 'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie em duas mensagens separadas por [NOVA_MENSAGEM]: uma de contexto (titular + valor) e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp.',
+          instrucao,
         ]
           .filter(Boolean)
           .join('\n'),

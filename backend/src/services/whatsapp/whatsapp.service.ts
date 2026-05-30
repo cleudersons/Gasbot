@@ -1,6 +1,7 @@
 import { getSupabase } from '../../lib/supabase';
 import * as metaProvider from './providers/meta.provider';
 import * as zapiProvider from './providers/zapi.provider';
+import { mapearTipoPix } from './providers/zapi.provider';
 
 interface AgenciaCacheEntry {
   data: any;
@@ -114,4 +115,47 @@ export async function sendMessage(agenciaId: string, to: string, message: string
   }
 
   throw new Error(`Provider WhatsApp desconhecido: ${provider}`);
+}
+
+/**
+ * Tenta enviar o card oficial de PIX (Z-API only por enquanto).
+ * Retorna true se enviou via card, false se não tem suporte (cair pro fallback texto).
+ * Lança erro só se for um erro inesperado (ex: rede) — Z-API sem credenciais retorna false.
+ */
+export async function sendPixCard(
+  agenciaId: string,
+  to: string,
+  params: { pixKey: string; pixKeyType: string; merchantName: string; value?: number },
+): Promise<boolean> {
+  const agencia = await getAgencia(agenciaId);
+
+  // Só Z-API por enquanto. Meta/demo: cai pro fallback texto.
+  if (agencia?.provider !== 'zapi' || !agencia.zapi_instance_id || !agencia.zapi_token) {
+    return false;
+  }
+
+  const tipoConvertido = mapearTipoPix(params.pixKeyType);
+  if (!tipoConvertido) {
+    console.warn(`[whatsapp] tipo PIX nao reconhecido: ${params.pixKeyType}`);
+    return false;
+  }
+
+  try {
+    await zapiProvider.sendPixPayment(
+      agencia.zapi_instance_id,
+      agencia.zapi_token,
+      to,
+      {
+        pixKey: params.pixKey,
+        pixKeyType: tipoConvertido,
+        merchantName: params.merchantName,
+        value: params.value,
+      },
+      agencia.zapi_client_token,
+    );
+    return true;
+  } catch (err: any) {
+    console.error('[whatsapp] sendPixCard via Z-API falhou:', err?.response?.data ?? err?.message ?? err);
+    return false;
+  }
 }

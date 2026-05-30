@@ -534,6 +534,27 @@ export default function ConfiguracoesPage() {
                   </span>
                 </span>
               </label>
+
+              <div className="mt-3 pt-3 border-t border-gray-300">
+                <label className="block text-sm font-medium mb-1">
+                  Tipo da chave <span className="text-gray-400 font-normal">(envia card oficial PIX quando disponível)</span>
+                </label>
+                <select
+                  value={promptConfig.pix_tipo_chave ?? ''}
+                  onChange={(e) => setField('pix_tipo_chave', (e.target.value || undefined) as any)}
+                  className="w-full md:w-1/2 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">— Não usar card (envia como texto) —</option>
+                  <option value="cnpj">CNPJ</option>
+                  <option value="cpf">CPF</option>
+                  <option value="email">E-mail</option>
+                  <option value="telefone">Telefone (celular)</option>
+                  <option value="aleatoria">Chave aleatória (EVP)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Quando preenchido + WhatsApp conectado via Z-API, o cliente recebe um card oficial do WhatsApp com botão "Copiar chave Pix" — bem mais profissional. Sem isso (ou se Meta API), envia como texto em 2 mensagens.
+                </p>
+              </div>
             </div>
           )}
 
