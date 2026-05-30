@@ -55,16 +55,25 @@ function ChatBox({
 }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Mantém foco no input quando a resposta chega (loading fica false),
+  // pra usuário continuar digitando sem clicar de novo.
+  useEffect(() => {
+    if (!loading) inputRef.current?.focus();
+  }, [loading]);
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
     if (!text || loading) return;
     setInput('');
+    // Mantém foco imediato após enviar (sem esperar resposta)
+    inputRef.current?.focus();
     await onSend(text);
   }
 
@@ -149,11 +158,12 @@ function ChatBox({
       {/* Input */}
       <form onSubmit={handleSend} className="bg-[#202c33] p-2 flex gap-2 border-t border-black/30">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Digite uma mensagem..."
-          disabled={loading}
+          autoFocus
           className="flex-1 bg-[#2a3942] text-white text-sm rounded-full px-4 py-2 placeholder-gray-500 focus:outline-none disabled:opacity-50"
         />
         <button
