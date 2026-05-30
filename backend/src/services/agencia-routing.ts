@@ -1,4 +1,5 @@
 import { getSupabase } from '../lib/supabase';
+import { variantesWhatsappBR } from '../utils/whatsapp-format';
 
 export interface Agencia {
   id: string;
@@ -64,10 +65,14 @@ async function buscarPorZapiInstance(instanceId: string): Promise<Agencia | null
 }
 
 async function buscarAgenciaTrialDemo(clienteWhatsapp: string): Promise<Agencia | null> {
+  // WhatsApp ora envia com 9º dígito, ora sem. Buscamos pelas duas variantes
+  // pra encontrar agências vinculadas mesmo se o número foi salvo no outro formato.
+  const variantes = variantesWhatsappBR(clienteWhatsapp);
   const { data } = await getSupabase()
     .from('agencias')
     .select(AGENCIA_COLUMNS)
-    .eq('demo_cliente_whatsapp', clienteWhatsapp)
+    .in('demo_cliente_whatsapp', variantes)
+    .limit(1)
     .maybeSingle();
   return (data as unknown as Agencia | null) ?? null;
 }
