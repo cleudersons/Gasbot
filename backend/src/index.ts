@@ -664,6 +664,11 @@ async function processarMensagemRecebida(
         console.error('[lembrete] falha ao inserir:', err?.message ?? err);
       }
       mensagemCliente = mensagemCliente.replace(/^LEMBRETE_CONFIRMADO[^\n]*\n?/m, '').trim();
+
+      // Fallback se IA esqueceu de mandar despedida após o token
+      if (!mensagemCliente) {
+        mensagemCliente = `✅ Lembrete agendado pra daqui ${parseInt(lembreteMatch[1] ?? '30', 10) || 30} dias. Tenha um ótimo dia! 🙌`;
+      }
     }
 
     if (mensagemCliente) {
@@ -917,12 +922,24 @@ app.post('/internal/simulador-chat', async (req, res) => {
       }
     }
 
+    // Detecta se houve lembrete confirmado pra cliente novo ANTES de strippar
+    const hadLembrete = /^LEMBRETE_CONFIRMADO/im.test(mensagemSimulador);
+    const lembreteMatch = mensagemSimulador.match(/^LEMBRETE_CONFIRMADO:?\s*(\d+)?/im);
+    const diasLembrete = lembreteMatch ? parseInt(lembreteMatch[1] ?? '30', 10) : null;
+
     // Remove tokens internos que vazariam pro chat (mesma lógica do webhook real)
     mensagemSimulador = mensagemSimulador
       .replace(/^NOME_CLIENTE:[^\n]*\n?/gim, '')
       .replace(/^LEMBRETE_CONFIRMADO[^\n]*\n?/gim, '')
       .replace(/^CONTATAR_ENTREGADOR:[^\n]*\n?/gim, '')
       .trim();
+
+    // Fallback: se IA emitiu só o token de lembrete sem texto, gera despedida amigável
+    if (hadLembrete && !mensagemSimulador) {
+      mensagemSimulador = diasLembrete
+        ? `✅ Lembrete agendado pra daqui ${diasLembrete} dias. Tenha um ótimo dia! 🙌`
+        : '✅ Lembrete agendado. Tenha um ótimo dia! 🙌';
+    }
 
     // PIX automático no simulador: mesmo comportamento do webhook real.
     // Anexa a mensagem PIX com [NOVA_MENSAGEM] pra UI renderizar como
