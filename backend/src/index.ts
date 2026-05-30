@@ -86,6 +86,27 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+// Endpoint interno do "agente gerente": notifica admin via WhatsApp.
+// Usado pelo frontend depois de eventos importantes (cadastros, etc).
+app.post('/internal/admin-notify', async (req, res) => {
+  const secretEsperado = process.env.SUTOGAS_WEBHOOK_SECRET;
+  if (!secretEsperado || req.header('X-Internal-Secret') !== secretEsperado) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { tipo, ...dados } = req.body ?? {};
+  try {
+    if (tipo === 'novo_cadastro') {
+      const { notificarNovoCadastro } = await import('./services/admin-agent.service');
+      await notificarNovoCadastro(dados);
+      return res.json({ ok: true });
+    }
+    return res.status(400).json({ error: `tipo desconhecido: ${tipo}` });
+  } catch (err: any) {
+    console.error('[admin-notify]', err?.message ?? err);
+    return res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
 app.use(checkoutRoute);
 
 // Meta webhook verification

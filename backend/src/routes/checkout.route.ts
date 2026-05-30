@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
 import { enviarEmailBoasVindasComSenha, enviarEmailRenovacaoConfirmada } from '../lib/email';
+import { notificarNovoCadastro } from '../services/admin-agent.service';
 
 async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp?: string }) {
   const formId = process.env.SUTOFLY_FORM_ID?.trim() ?? '6';
@@ -216,6 +217,18 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
       // Comprador externo também entra na régua de marketing da Sutofly/Mailrelay
       registrarNoSutoflyForm({ nome: email.split('@')[0], email }).catch((err) => {
         console.error('[webhook/checkout] falha ao registrar no Sutofly Form:', err?.message ?? err);
+      });
+
+      // Notifica o admin via WhatsApp
+      notificarNovoCadastro({
+        origem: 'checkout',
+        nome: email.split('@')[0],
+        email,
+        plano: mapping.plano,
+        valor,
+        agenciaId: agenciaId!,
+      }).catch((err) => {
+        console.error('[webhook/checkout] falha ao notificar admin:', err?.message ?? err);
       });
     } else if (!criadaAgora && email) {
       // Item 5: renovação/upgrade de cliente já existente

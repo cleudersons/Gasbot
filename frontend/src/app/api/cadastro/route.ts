@@ -90,11 +90,53 @@ export async function POST(req: Request) {
     });
   }
 
+  // Notifica o admin via WhatsApp (não bloqueia o cadastro se falhar)
+  notificarAdminCadastro({
+    nome,
+    email,
+    whatsapp: whatsapp || null,
+    agenciaId: agencia.id,
+  }).catch((err) => {
+    console.error('[admin] Falha ao notificar:', err);
+  });
+
   return NextResponse.json({
     ok: true,
     agencia_id: agencia.id,
     // Senha vai no JSON só pra client logar automaticamente (same-origin HTTPS).
     senha_temporaria: gerouSenha ? senha : undefined,
+  });
+}
+
+async function notificarAdminCadastro(dados: {
+  nome: string;
+  email: string;
+  whatsapp: string | null;
+  agenciaId: string;
+}) {
+  const backendUrl =
+    process.env.SUTOGAS_BACKEND_URL?.trim() ??
+    'https://sutogas-backend-production.up.railway.app';
+  const secret = process.env.SUTOGAS_WEBHOOK_SECRET?.trim();
+  if (!secret) {
+    console.warn('[admin] SUTOGAS_WEBHOOK_SECRET ausente no frontend');
+    return;
+  }
+  await fetch(`${backendUrl}/internal/admin-notify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Internal-Secret': secret,
+    },
+    body: JSON.stringify({
+      tipo: 'novo_cadastro',
+      origem: 'trial',
+      nome: dados.nome,
+      email: dados.email,
+      whatsapp: dados.whatsapp,
+      plano: 'trial',
+      agenciaId: dados.agenciaId,
+    }),
   });
 }
 
