@@ -12,6 +12,7 @@ import {
   personaPadrao,
 } from '@/lib/prompt-builder';
 import HistoricoPrompt from './HistoricoPrompt';
+import SimuladorChat from './SimuladorChat';
 
 interface Agencia {
   id: string;
@@ -722,6 +723,8 @@ export default function ConfiguracoesPage() {
           e formato técnico é mantida pelo sistema automaticamente.
         </p>
       </Modal>
+
+      {tab === 'agente' && <SimuladorChat />}
     </div>
   );
 }

@@ -772,6 +772,109 @@ app.get('/api/agencias/:id/qrcode', async (req, res) => {
   }
 });
 
+// Simulador de chat — usado pela UI de configurações pra testar o prompt
+// em tempo real sem precisar conectar WhatsApp. Pedidos confirmados aqui
+// criam pedidos REAIS e notificam entregadores via WhatsApp.
+//
+// Auth: header X-Internal-Secret (mesmo segredo do webhook de checkout).
+app.post('/internal/simulador-chat', async (req, res) => {
+  try {
+    const secretEsperado = process.env.SUTOGAS_WEBHOOK_SECRET;
+    if (!secretEsperado || req.header('X-Internal-Secret') !== secretEsperado) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { agenciaId, message, history } = req.body ?? {};
+    if (!agenciaId || typeof message !== 'string') {
+      return res.status(400).json({ error: 'agenciaId e message obrigatórios' });
+    }
+
+    const { data: agencia } = await getSupabase()
+      .from('agencias')
+      .select('*')
+      .eq('id', agenciaId)
+      .maybeSingle();
+    if (!agencia) return res.status(404).json({ error: 'Agência não encontrada' });
+
+    // cliente_whatsapp sintético — não colide com números reais
+    const clienteSim = `SIMULADOR-${agenciaId.slice(0, 8)}`;
+
+    // Histórico vem da UI (localStorage); converte pra formato Message
+    const historico: Message[] = Array.isArray(history)
+      ? history
+          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+      : [];
+
+    // Marca horário se fora do horário (mesmo padrão do webhook real)
+    const dentroHorario = estaNoHorario(agencia as any);
+    const marcas: string[] = [];
+    if (!dentroHorario) {
+      const janela = janelaHorarioStr(agencia as any);
+      marcas.push(`[SISTEMA: fora do horário (${janela}). Pergunte se o cliente quer agendar para a abertura.]`);
+    }
+    const textoParaIA = marcas.length ? `${marcas.join('\n')}\n\n${message}` : message;
+
+    const reply = await generateReply(
+      aiConfig,
+      historico,
+      textoParaIA,
+      agencia.prompt_customizado,
+    );
+
+    // Parser de PEDIDO_CONFIRMADO — igual ao webhook real
+    let mensagemSimulador = reply;
+    let pedidoCriadoId: string | null = null;
+    const parsed = parsePedidoConfirmado(reply);
+    if (parsed) {
+      const { produto: produtoResumo, quantidade: qtdResumo } = resumoItens(parsed.itens);
+      const abertura = dentroHorario ? null : proximaAbertura(agencia as any);
+      const pedido = await salvarPedido(
+        agenciaId,
+        clienteSim,
+        produtoResumo,
+        qtdResumo,
+        parsed.endereco,
+        {
+          status: dentroHorario ? 'pendente' : 'agendado',
+          agendadoPara: abertura ?? undefined,
+          formaPagamento: parsed.formaPagamento,
+          itens: parsed.itens,
+          valorTotal: parsed.valorTotal,
+        },
+      );
+      pedidoCriadoId = pedido.id;
+      console.log(`[simulador] pedido criado: ${pedido.id} status=${dentroHorario ? 'pendente' : 'agendado'}`);
+
+      if (dentroHorario) {
+        // Distribui pros entregadores reais via provider real da agência
+        await distribuirPedido(pedido, agencia as any);
+      }
+
+      mensagemSimulador = removerTokenPedido(reply);
+      if (!dentroHorario) {
+        const tz = agencia.timezone ?? 'America/Sao_Paulo';
+        const horaAbertura = abertura
+          ? abertura.toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: tz })
+          : '';
+        mensagemSimulador = horaAbertura
+          ? `✅ Pedido agendado pra ${horaAbertura}! Te aviso quando o entregador estiver a caminho.`
+          : '✅ Pedido agendado pra abertura! Te aviso quando o entregador sair.';
+      } else if (!mensagemSimulador) {
+        mensagemSimulador = '✅ Pedido confirmado! Já avisei o entregador. 🛵';
+      }
+    }
+
+    return res.json({
+      reply: mensagemSimulador,
+      pedido_criado_id: pedidoCriadoId,
+    });
+  } catch (err: any) {
+    console.error('[simulador-chat]', err?.message ?? err);
+    return res.status(500).json({ error: err?.message ?? 'Erro interno' });
+  }
+});
+
 // Enviar relatório (teste manual)
 app.post('/api/agencias/:id/relatorio/teste', async (req, res) => {
   try {
