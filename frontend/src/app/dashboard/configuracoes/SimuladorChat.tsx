@@ -9,6 +9,15 @@ interface Mensagem {
   pedido_id?: string;
 }
 
+// Divide a resposta da IA em múltiplas bolhas quando ela usar [NOVA_MENSAGEM]
+// (mesmo padrão que o WhatsApp envia em mensagens separadas).
+function splitMensagens(texto: string): string[] {
+  return texto
+    .split(/\[NOVA_MENSAGEM\]/i)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
 const STORAGE_KEY = 'sutogas:simulador-chat';
 
 function carregar(): Mensagem[] {
@@ -100,27 +109,30 @@ function ChatBox({
           </div>
         )}
 
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((m, i) => {
+          const partes = m.role === 'assistant' ? splitMensagens(m.content) : [m.content];
+          return partes.map((parte, j) => (
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                m.role === 'user'
-                  ? 'bg-[#005c4b] text-white'
-                  : 'bg-[#202c33] text-gray-100'
-              }`}
+              key={`${i}-${j}`}
+              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {m.content}
-              {m.pedido_id && (
-                <div className="text-[10px] text-green-300 mt-1 opacity-80">
-                  ✅ pedido criado #{m.pedido_id.slice(0, 8)}
-                </div>
-              )}
+              <div
+                className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+                  m.role === 'user'
+                    ? 'bg-[#005c4b] text-white'
+                    : 'bg-[#202c33] text-gray-100'
+                }`}
+              >
+                {parte}
+                {m.pedido_id && j === partes.length - 1 && (
+                  <div className="text-[10px] text-green-300 mt-1 opacity-80">
+                    ✅ pedido criado #{m.pedido_id.slice(0, 8)}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ));
+        })}
 
         {loading && (
           <div className="flex justify-start">

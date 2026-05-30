@@ -17,6 +17,7 @@ export interface PromptConfig {
   marca_gas?: string;         // ex.: Supergasbras Dourado, Liquigás, Ultragaz
   taxa_entrega?: string;      // ex.: R$ 15 — programa Gás do Povo
   whatsapp_alternativo?: string; // p/ "Gás do Povo" e "Vale Gás" — cliente é redirecionado
+  pix_automatico?: boolean;   // true = manda chave PIX automaticamente quando pagamento for PIX
   tom: Tom;
 }
 
@@ -350,13 +351,16 @@ export function buildPrompt(c: PromptConfig): string {
   }
 
   if (pixChave) {
+    const pixAuto = !!c.pix_automatico;
     partes.push(
       bloco(
         'CHAVE PIX:',
         [
           `Chave: ${pixChave}`,
           pixTitular ? `Titular: ${pixTitular}` : '',
-          'Quando o cliente pedir a chave Pix, siga a regra "CHAVE PIX" do bloco técnico: envie em duas mensagens (uma de contexto e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp).',
+          pixAuto
+            ? 'IMPORTANTE: SEMPRE que o cliente escolher pagar com PIX (mesmo sem pedir explicitamente a chave), envie a chave proativamente em duas mensagens separadas por [NOVA_MENSAGEM]. Mensagem 1: contexto curto com titular e valor total. Mensagem 2: SÓ a chave, sozinha, sem aspas, sem markdown, sem emoji.'
+            : 'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie em duas mensagens separadas por [NOVA_MENSAGEM]: uma de contexto (titular + valor) e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp.',
         ]
           .filter(Boolean)
           .join('\n'),

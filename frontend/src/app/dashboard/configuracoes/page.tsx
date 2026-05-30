@@ -500,10 +500,46 @@ export default function ConfiguracoesPage() {
               onChange={(v) => setField('pix_titular', v)}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Quando o cliente pedir a chave Pix, a atendente envia o nome do titular numa
-            mensagem e a chave sozinha em outra — assim o cliente segura a mensagem no
-            WhatsApp e copia em um toque.
+
+          {promptConfig.pix_chave && (
+            <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <p className="text-sm font-medium mb-2">Quando enviar a chave?</p>
+              <label className="flex items-start gap-2 cursor-pointer mb-2 text-sm">
+                <input
+                  type="radio"
+                  name="pix-comportamento"
+                  checked={!promptConfig.pix_automatico}
+                  onChange={() => setField('pix_automatico', false)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>Só quando o cliente pedir</strong>
+                  <span className="block text-xs text-gray-500">
+                    "manda o pix", "qual a chave?", etc.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer text-sm">
+                <input
+                  type="radio"
+                  name="pix-comportamento"
+                  checked={!!promptConfig.pix_automatico}
+                  onChange={() => setField('pix_automatico', true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>Sempre que cliente escolher PIX como pagamento</strong>
+                  <span className="block text-xs text-gray-500">
+                    A atendente já envia a chave junto com a confirmação do pedido.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 mt-2">
+            A atendente envia o nome do titular numa mensagem e a chave sozinha em outra —
+            assim o cliente segura a mensagem no WhatsApp e copia em um toque.
           </p>
         </div>
 
