@@ -32,9 +32,45 @@ export function invalidateAgenciaCache(agenciaId: string): void {
   agenciaCache.delete(agenciaId);
 }
 
+// Verifica se a agência tem credenciais Meta/Z-API completas configuradas.
+// Quando não tem, caímos no provider 'demo' (nosso número) para que o
+// cliente possa testar o fluxo de ponta a ponta antes de conectar o WhatsApp dele.
+function temCredenciaisReais(agencia: any): boolean {
+  if (agencia?.provider === 'meta') {
+    return !!(
+      (agencia.phone_number_id ?? agencia.meta_phone_number_id) &&
+      (agencia.whatsapp_token ?? agencia.meta_access_token)
+    );
+  }
+  if (agencia?.provider === 'zapi') {
+    return !!(agencia.zapi_instance_id && agencia.zapi_token);
+  }
+  return false;
+}
+
 export async function sendMessage(agenciaId: string, to: string, message: string): Promise<void> {
   const agencia = await getAgencia(agenciaId);
   const provider = agencia?.provider ?? agencia?.whatsapp_provider ?? 'meta';
+
+  // Sem credenciais reais → usa nosso número demo para o cliente testar
+  // o fluxo (mensagens ao cliente E entregador) antes de conectar o dele.
+  if (!temCredenciaisReais(agencia)) {
+    const phoneNumberId =
+      process.env.META_DEMO_PHONE_NUMBER_ID?.trim() ??
+      process.env.META_PHONE_NUMBER_ID?.trim();
+    const accessToken =
+      process.env.META_DEMO_ACCESS_TOKEN?.trim() ??
+      process.env.META_ACCESS_TOKEN?.trim();
+
+    if (!phoneNumberId || !accessToken) {
+      throw new Error(
+        'Sem credenciais Meta/Z-API na agência e META_PHONE_NUMBER_ID/META_ACCESS_TOKEN ausentes nas env vars',
+      );
+    }
+
+    await metaProvider.sendMessage(phoneNumberId, accessToken, to, message);
+    return;
+  }
 
   if (provider === 'zapi') {
     await zapiProvider.sendMessage(
