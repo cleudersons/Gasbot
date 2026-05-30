@@ -358,12 +358,17 @@ export function buildPrompt(c: PromptConfig): string {
     })();
     const tituloLinha = pixTitular || deposito;
 
-    const gatilho = pixAuto
-      ? 'GATILHO: SOMENTE depois que você emitir PEDIDO_CONFIRMADO com forma_pagamento=pix (ou seja, depois que o cliente confirmou o resumo respondendo "sim"). NÃO envie a chave junto com o resumo do passo 4. NÃO envie a chave durante a coleta. Envie SÓ depois da confirmação.'
-      : 'GATILHO: SOMENTE quando o cliente PEDIR a chave Pix explicitamente ("manda o pix", "qual a chave?", "passa o pix"). NÃO envie sem ele pedir.';
-
     const exemploBloco =
       `Chave Pix:\n\n${tituloLinha}\n\n${labelTipo}:\n\n${pixChave}`;
+
+    const intro = pixAuto
+      ? [
+          'MODO AUTOMÁTICO ativo: o SISTEMA envia a chave PIX automaticamente em uma mensagem separada SEMPRE que o pedido confirmado tiver pagamento=pix. Você NÃO precisa escrever a chave nesses casos — só confirme o pedido normalmente.',
+          'A única situação em que VOCÊ envia a chave é se o cliente PEDIR antes de confirmar o pedido (ex.: "me manda o pix antes pra eu pagar"). Nesse caso siga o formato abaixo.',
+        ]
+      : [
+          'MODO SOB DEMANDA: a chave PIX só vai pro cliente quando ele PEDIR explicitamente ("manda o pix", "qual a chave?", "passa o pix"). Nunca envie sem ele pedir.',
+        ];
 
     partes.push(
       bloco(
@@ -373,31 +378,15 @@ export function buildPrompt(c: PromptConfig): string {
           pixTitular ? `Titular: ${pixTitular}` : '',
           `Tipo da chave: ${labelTipo}`,
           '',
-          gatilho,
+          ...intro,
           '',
-          'FORMATO E SEPARAÇÃO:',
-          '- A chave PIX deve ir em uma MENSAGEM SEPARADA — use [NOVA_MENSAGEM] antes do bloco da chave.',
-          '- Mantenha as linhas em branco entre cada parte do bloco da chave.',
-          '- NÃO use markdown (sem ** sem _).',
-          '- NÃO inclua emojis dentro do bloco da chave.',
-          '- NÃO troque a ordem das linhas.',
-          '- WhatsApp detecta a chave automaticamente e deixa copiável.',
-          '',
-          'Exemplo de mensagem COMPLETA quando o cliente confirma o pedido PIX (modo automático):',
-          '---',
-          'PEDIDO_CONFIRMADO:botijão|1|Rua C, 10, Cidade Jardim|pix',
-          '✅ Pedido confirmado! O entregador já está a caminho 🛵',
-          'Pra eu já deixar anotado: qual seu nome?',
-          '[NOVA_MENSAGEM]',
-          exemploBloco,
-          '---',
-          '',
-          'Exemplo de resposta quando o cliente PEDE a chave depois (qualquer modo):',
+          'Quando VOCÊ enviar a chave, use EXATAMENTE este formato em uma mensagem separada por [NOVA_MENSAGEM]:',
           '---',
           'Claro!',
           '[NOVA_MENSAGEM]',
           exemploBloco,
           '---',
+          'NÃO use markdown. NÃO inclua emojis no bloco da chave. Mantenha as linhas em branco entre as partes. WhatsApp vai detectar e deixar copiável.',
         ]
           .filter(Boolean)
           .join('\n'),

@@ -104,6 +104,28 @@ app.get('/webhook', (req, res) => {
  * Se for, avisa o dono via WhatsApp e responde o cliente. Se não, orienta o
  * cliente a usar texto. Chamada pelos webhooks antes do fluxo normal.
  */
+// Monta a mensagem estruturada de PIX (mesmo formato que a IA usaria
+// quando o cliente pede explicitamente). WhatsApp detecta a chave e
+// deixa copiável automaticamente.
+function montarMensagemPix(promptConfig: any, nomeAgencia?: string): string {
+  const chave = (promptConfig?.pix_chave ?? '').toString().trim();
+  const titular =
+    (promptConfig?.pix_titular ?? promptConfig?.deposito ?? nomeAgencia ?? '').toString().trim() ||
+    'Depósito';
+  const tipoRaw = (promptConfig?.pix_tipo_chave ?? '').toString().toLowerCase();
+  const label = (() => {
+    switch (tipoRaw) {
+      case 'cnpj': return 'CNPJ';
+      case 'cpf': return 'CPF';
+      case 'email': return 'E-mail';
+      case 'telefone': return 'Telefone';
+      case 'aleatoria': return 'Chave aleatória';
+      default: return 'Chave';
+    }
+  })();
+  return `Chave Pix:\n\n${titular}\n\n${label}:\n\n${chave}`;
+}
+
 async function processarImagemRecebida(
   agencia: Agencia,
   from: string,
@@ -633,14 +655,30 @@ async function processarMensagemRecebida(
     }
 
     if (mensagemCliente) {
-      // Suporta múltiplas mensagens separadas por [NOVA_MENSAGEM] (legado — PIX agora
-      // vem em mensagem única estruturada, mas mantemos pra casos futuros)
+      // Suporta múltiplas mensagens separadas por [NOVA_MENSAGEM]
       const partes = mensagemCliente
         .split(/\[NOVA_MENSAGEM\]/i)
         .map((p) => p.trim())
         .filter(Boolean);
       for (const parte of partes) {
         await whatsappService.sendMessage(agenciaId, from, parte);
+      }
+    }
+
+    // PIX automático: quando agência configurou "Sempre que cliente escolher PIX"
+    // e o pedido confirmado tem formaPagamento=pix, sistema envia a chave
+    // em mensagem separada (sem depender da IA lembrar).
+    if (
+      parsed &&
+      parsed.formaPagamento?.toLowerCase() === 'pix' &&
+      (agencia as any).prompt_config?.pix_automatico &&
+      (agencia as any).prompt_config?.pix_chave
+    ) {
+      try {
+        const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome);
+        await whatsappService.sendMessage(agenciaId, from, pixMsg);
+      } catch (err: any) {
+        console.error('[webhook] falha ao enviar PIX automático:', err?.message ?? err);
       }
     }
 
@@ -873,6 +911,21 @@ app.post('/internal/simulador-chat', async (req, res) => {
       .replace(/^LEMBRETE_CONFIRMADO[^\n]*\n?/gim, '')
       .replace(/^CONTATAR_ENTREGADOR:[^\n]*\n?/gim, '')
       .trim();
+
+    // PIX automático no simulador: mesmo comportamento do webhook real.
+    // Anexa a mensagem PIX com [NOVA_MENSAGEM] pra UI renderizar como
+    // bolha separada.
+    if (
+      parsed &&
+      parsed.formaPagamento?.toLowerCase() === 'pix' &&
+      (agencia as any).prompt_config?.pix_automatico &&
+      (agencia as any).prompt_config?.pix_chave
+    ) {
+      const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome);
+      mensagemSimulador = mensagemSimulador
+        ? `${mensagemSimulador}\n[NOVA_MENSAGEM]\n${pixMsg}`
+        : pixMsg;
+    }
 
     return res.json({
       reply: mensagemSimulador,
