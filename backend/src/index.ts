@@ -633,50 +633,14 @@ async function processarMensagemRecebida(
     }
 
     if (mensagemCliente) {
-      // Suporta múltiplas mensagens separadas por [NOVA_MENSAGEM] (ex.: enviar chave Pix sozinha)
+      // Suporta múltiplas mensagens separadas por [NOVA_MENSAGEM] (legado — PIX agora
+      // vem em mensagem única estruturada, mas mantemos pra casos futuros)
       const partes = mensagemCliente
         .split(/\[NOVA_MENSAGEM\]/i)
         .map((p) => p.trim())
         .filter(Boolean);
       for (const parte of partes) {
         await whatsappService.sendMessage(agenciaId, from, parte);
-      }
-    }
-
-    // Card oficial de PIX via Z-API quando configurado.
-    // O prompt em modo card já instrui a IA a NÃO incluir a chave no texto,
-    // então aqui só completamos enviando o card.
-    if (
-      parsed &&
-      parsed.formaPagamento?.toLowerCase() === 'pix' &&
-      (agencia as any).prompt_config?.pix_automatico &&
-      (agencia as any).prompt_config?.pix_tipo_chave &&
-      (agencia as any).prompt_config?.pix_chave
-    ) {
-      try {
-        const cfg = (agencia as any).prompt_config;
-        const enviou = await whatsappService.sendPixCard(agenciaId, from, {
-          pixKey: cfg.pix_chave,
-          pixKeyType: cfg.pix_tipo_chave,
-          merchantName: cfg.pix_titular ?? cfg.deposito ?? 'Depósito',
-          value: parsed.valorTotal ?? undefined,
-        });
-        if (!enviou) {
-          // Fallback texto: 2 mensagens com a chave (provedor não suporta card)
-          const titular = cfg.pix_titular ?? cfg.deposito ?? '';
-          const valor =
-            parsed.valorTotal != null
-              ? parsed.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-              : '';
-          await whatsappService.sendMessage(
-            agenciaId,
-            from,
-            `Chave Pix${titular ? ` (${titular})` : ''}${valor ? ` — Valor: ${valor}` : ''}:`,
-          );
-          await whatsappService.sendMessage(agenciaId, from, cfg.pix_chave);
-        }
-      } catch (err: any) {
-        console.error('[webhook] falha ao enviar PIX:', err?.message ?? err);
       }
     }
 

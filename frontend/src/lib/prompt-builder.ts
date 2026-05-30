@@ -353,37 +353,41 @@ export function buildPrompt(c: PromptConfig): string {
 
   if (pixChave) {
     const pixAuto = !!c.pix_automatico;
-    const tipoChave = c.pix_tipo_chave;
-    // Modo "card": sistema envia o PIX como card oficial após PEDIDO_CONFIRMADO,
-    // a IA não deve incluir a chave no texto. Só vale quando tipo está configurado.
-    const cardMode = pixAuto && !!tipoChave;
+    const labelTipo = (() => {
+      switch (c.pix_tipo_chave) {
+        case 'cnpj': return 'CNPJ';
+        case 'cpf': return 'CPF';
+        case 'email': return 'E-mail';
+        case 'telefone': return 'Telefone';
+        case 'aleatoria': return 'Chave aleatória';
+        default: return 'Chave';
+      }
+    })();
+    const tituloLinha = pixTitular || deposito;
 
-    let instrucao: string;
-    if (cardMode) {
-      instrucao =
-        'IMPORTANTE: o sistema vai enviar a chave PIX automaticamente em um card oficial ' +
-        'do WhatsApp após você confirmar o pedido. NÃO inclua a chave PIX no seu texto, ' +
-        'NÃO use [NOVA_MENSAGEM] nesse caso. Apenas confirme o pedido normalmente.';
-    } else if (pixAuto) {
-      instrucao =
-        'IMPORTANTE: SEMPRE que o cliente escolher pagar com PIX (mesmo sem pedir ' +
-        'explicitamente a chave), envie a chave proativamente em duas mensagens separadas ' +
-        'por [NOVA_MENSAGEM]. Mensagem 1: contexto curto com titular e valor total. ' +
-        'Mensagem 2: SÓ a chave, sozinha, sem aspas, sem markdown, sem emoji.';
-    } else {
-      instrucao =
-        'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie em ' +
-        'duas mensagens separadas por [NOVA_MENSAGEM]: uma de contexto (titular + valor) ' +
-        'e outra só com a chave, sozinha, para facilitar o copiar no WhatsApp.';
-    }
+    const gatilho = pixAuto
+      ? 'SEMPRE que o cliente escolher PIX como pagamento (mesmo sem pedir explicitamente a chave), envie a mensagem da chave junto com a confirmação do pedido.'
+      : 'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie a mensagem da chave.';
+
+    const exemplo =
+      `Chave Pix:\n\n${tituloLinha}\n\n${labelTipo}:\n\n${pixChave}`;
 
     partes.push(
       bloco(
         'CHAVE PIX:',
         [
-          `Chave: ${pixChave}`,
+          `Chave configurada: ${pixChave}`,
           pixTitular ? `Titular: ${pixTitular}` : '',
-          instrucao,
+          `Tipo da chave: ${labelTipo}`,
+          '',
+          gatilho,
+          '',
+          'IMPORTANTE: envie UMA ÚNICA mensagem com este formato EXATO (mantenha as linhas em branco entre cada parte). NÃO use [NOVA_MENSAGEM]. NÃO use markdown (sem ** sem _). NÃO inclua emojis. NÃO troque a ordem das linhas. WhatsApp vai detectar a chave automaticamente e deixar copiável.',
+          '',
+          'Exemplo (use exatamente este formato substituindo os valores pelos da configuração acima):',
+          '---',
+          exemplo,
+          '---',
         ]
           .filter(Boolean)
           .join('\n'),
