@@ -49,49 +49,79 @@ function temCredenciaisReais(agencia: any): boolean {
   return false;
 }
 
+// Identifica erros de "WhatsApp desconectado" (Z-API ou Meta) pra ativar fallback demo.
+function ehDesconectado(err: any): boolean {
+  const data = err?.response?.data;
+  const dataStr = typeof data === 'string' ? data : JSON.stringify(data ?? {});
+  const msg = `${err?.message ?? ''} ${dataStr}`.toLowerCase();
+  return (
+    msg.includes('disconnected') ||
+    msg.includes('enqueue message is disabled') ||
+    msg.includes('not connected') ||
+    msg.includes('session not found') ||
+    err?.response?.status === 401 // token Meta vencido também conta
+  );
+}
+
+// Envia via nosso número demo (Meta API global). Usado pra clientes ainda
+// sem credenciais OU quando as credenciais reais falham por desconexão.
+async function enviarViaDemo(to: string, message: string): Promise<void> {
+  const phoneNumberId =
+    process.env.META_DEMO_PHONE_NUMBER_ID?.trim() ??
+    process.env.META_PHONE_NUMBER_ID?.trim();
+  const accessToken =
+    process.env.META_DEMO_ACCESS_TOKEN?.trim() ??
+    process.env.META_ACCESS_TOKEN?.trim();
+
+  if (!phoneNumberId || !accessToken) {
+    throw new Error('META_PHONE_NUMBER_ID/META_ACCESS_TOKEN ausentes nas env vars');
+  }
+
+  await metaProvider.sendMessage(phoneNumberId, accessToken, to, message);
+}
+
 export async function sendMessage(agenciaId: string, to: string, message: string): Promise<void> {
   const agencia = await getAgencia(agenciaId);
   const provider = agencia?.provider ?? agencia?.whatsapp_provider ?? 'meta';
 
-  // Sem credenciais reais → usa nosso número demo para o cliente testar
-  // o fluxo (mensagens ao cliente E entregador) antes de conectar o dele.
+  // Sem credenciais reais → vai direto pelo demo
   if (!temCredenciaisReais(agencia)) {
-    const phoneNumberId =
-      process.env.META_DEMO_PHONE_NUMBER_ID?.trim() ??
-      process.env.META_PHONE_NUMBER_ID?.trim();
-    const accessToken =
-      process.env.META_DEMO_ACCESS_TOKEN?.trim() ??
-      process.env.META_ACCESS_TOKEN?.trim();
+    await enviarViaDemo(to, message);
+    return;
+  }
 
-    if (!phoneNumberId || !accessToken) {
-      throw new Error(
-        'Sem credenciais Meta/Z-API na agência e META_PHONE_NUMBER_ID/META_ACCESS_TOKEN ausentes nas env vars',
+  // Tenta provider real. Se falhar com erro de "desconectado", cai pro demo.
+  // Outros erros (rate limit, payload inválido) propagam normalmente.
+  try {
+    if (provider === 'zapi') {
+      await zapiProvider.sendMessage(
+        agencia.zapi_instance_id,
+        agencia.zapi_token,
+        to,
+        message,
+        agencia.zapi_client_token,
       );
+      return;
     }
 
-    await metaProvider.sendMessage(phoneNumberId, accessToken, to, message);
-    return;
-  }
-
-  if (provider === 'zapi') {
-    await zapiProvider.sendMessage(
-      agencia.zapi_instance_id,
-      agencia.zapi_token,
-      to,
-      message,
-      agencia.zapi_client_token,
-    );
-    return;
-  }
-
-  if (provider === 'meta') {
-    await metaProvider.sendMessage(
-      agencia.phone_number_id ?? agencia.meta_phone_number_id,
-      agencia.whatsapp_token ?? agencia.meta_access_token,
-      to,
-      message,
-    );
-    return;
+    if (provider === 'meta') {
+      await metaProvider.sendMessage(
+        agencia.phone_number_id ?? agencia.meta_phone_number_id,
+        agencia.whatsapp_token ?? agencia.meta_access_token,
+        to,
+        message,
+      );
+      return;
+    }
+  } catch (err: any) {
+    if (ehDesconectado(err)) {
+      console.warn(
+        `[whatsapp] agência ${agenciaId} provider=${provider} desconectado — caindo pro demo`,
+      );
+      await enviarViaDemo(to, message);
+      return;
+    }
+    throw err;
   }
 
   // Provider 'demo' — agências criadas pelo fluxo de trial demo. Usam as
