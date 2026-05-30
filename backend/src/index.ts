@@ -106,8 +106,12 @@ app.get('/webhook', (req, res) => {
  */
 // Monta a mensagem estruturada de PIX (mesmo formato que a IA usaria
 // quando o cliente pede explicitamente). WhatsApp detecta a chave e
-// deixa copiável automaticamente.
-function montarMensagemPix(promptConfig: any, nomeAgencia?: string): string {
+// deixa copiável automaticamente. Inclui o valor do pedido quando disponível.
+function montarMensagemPix(
+  promptConfig: any,
+  nomeAgencia?: string,
+  valorPedido?: number | null,
+): string {
   const chave = (promptConfig?.pix_chave ?? '').toString().trim();
   const titular =
     (promptConfig?.pix_titular ?? promptConfig?.deposito ?? nomeAgencia ?? '').toString().trim() ||
@@ -123,7 +127,15 @@ function montarMensagemPix(promptConfig: any, nomeAgencia?: string): string {
       default: return 'Chave';
     }
   })();
-  return `Chave Pix:\n\n${titular}\n\n${label}:\n\n${chave}`;
+  let msg = `Chave Pix:\n\n${titular}\n\n${label}:\n\n${chave}`;
+  if (valorPedido != null && valorPedido > 0) {
+    const valorStr = valorPedido.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+    msg += `\n\nValor: ${valorStr}`;
+  }
+  return msg;
 }
 
 async function processarImagemRecebida(
@@ -675,7 +687,7 @@ async function processarMensagemRecebida(
       (agencia as any).prompt_config?.pix_chave
     ) {
       try {
-        const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome);
+        const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome, parsed.valorTotal);
         await whatsappService.sendMessage(agenciaId, from, pixMsg);
       } catch (err: any) {
         console.error('[webhook] falha ao enviar PIX automático:', err?.message ?? err);
@@ -921,7 +933,7 @@ app.post('/internal/simulador-chat', async (req, res) => {
       (agencia as any).prompt_config?.pix_automatico &&
       (agencia as any).prompt_config?.pix_chave
     ) {
-      const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome);
+      const pixMsg = montarMensagemPix((agencia as any).prompt_config, agencia.nome, parsed.valorTotal);
       mensagemSimulador = mensagemSimulador
         ? `${mensagemSimulador}\n[NOVA_MENSAGEM]\n${pixMsg}`
         : pixMsg;
