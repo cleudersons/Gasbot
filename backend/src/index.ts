@@ -867,6 +867,13 @@ app.post('/internal/simulador-chat', async (req, res) => {
       }
     }
 
+    // Remove tokens internos que vazariam pro chat (mesma lógica do webhook real)
+    mensagemSimulador = mensagemSimulador
+      .replace(/^NOME_CLIENTE:[^\n]*\n?/gim, '')
+      .replace(/^LEMBRETE_CONFIRMADO[^\n]*\n?/gim, '')
+      .replace(/^CONTATAR_ENTREGADOR:[^\n]*\n?/gim, '')
+      .trim();
+
     return res.json({
       reply: mensagemSimulador,
       pedido_criado_id: pedidoCriadoId,

@@ -359,10 +359,10 @@ export function buildPrompt(c: PromptConfig): string {
     const tituloLinha = pixTitular || deposito;
 
     const gatilho = pixAuto
-      ? 'SEMPRE que o cliente escolher PIX como pagamento (mesmo sem pedir explicitamente a chave), envie a mensagem da chave junto com a confirmação do pedido.'
-      : 'Quando o cliente PEDIR a chave Pix ("manda o pix", "qual a chave?"), envie a mensagem da chave.';
+      ? 'GATILHO: SOMENTE depois que você emitir PEDIDO_CONFIRMADO com forma_pagamento=pix (ou seja, depois que o cliente confirmou o resumo respondendo "sim"). NÃO envie a chave junto com o resumo do passo 4. NÃO envie a chave durante a coleta. Envie SÓ depois da confirmação.'
+      : 'GATILHO: SOMENTE quando o cliente PEDIR a chave Pix explicitamente ("manda o pix", "qual a chave?", "passa o pix"). NÃO envie sem ele pedir.';
 
-    const exemplo =
+    const exemploBloco =
       `Chave Pix:\n\n${tituloLinha}\n\n${labelTipo}:\n\n${pixChave}`;
 
     partes.push(
@@ -375,11 +375,28 @@ export function buildPrompt(c: PromptConfig): string {
           '',
           gatilho,
           '',
-          'IMPORTANTE: envie UMA ÚNICA mensagem com este formato EXATO (mantenha as linhas em branco entre cada parte). NÃO use [NOVA_MENSAGEM]. NÃO use markdown (sem ** sem _). NÃO inclua emojis. NÃO troque a ordem das linhas. WhatsApp vai detectar a chave automaticamente e deixar copiável.',
+          'FORMATO E SEPARAÇÃO:',
+          '- A chave PIX deve ir em uma MENSAGEM SEPARADA — use [NOVA_MENSAGEM] antes do bloco da chave.',
+          '- Mantenha as linhas em branco entre cada parte do bloco da chave.',
+          '- NÃO use markdown (sem ** sem _).',
+          '- NÃO inclua emojis dentro do bloco da chave.',
+          '- NÃO troque a ordem das linhas.',
+          '- WhatsApp detecta a chave automaticamente e deixa copiável.',
           '',
-          'Exemplo (use exatamente este formato substituindo os valores pelos da configuração acima):',
+          'Exemplo de mensagem COMPLETA quando o cliente confirma o pedido PIX (modo automático):',
           '---',
-          exemplo,
+          'PEDIDO_CONFIRMADO:botijão|1|Rua C, 10, Cidade Jardim|pix',
+          '✅ Pedido confirmado! O entregador já está a caminho 🛵',
+          'Pra eu já deixar anotado: qual seu nome?',
+          '[NOVA_MENSAGEM]',
+          exemploBloco,
+          '---',
+          '',
+          'Exemplo de resposta quando o cliente PEDE a chave depois (qualquer modo):',
+          '---',
+          'Claro!',
+          '[NOVA_MENSAGEM]',
+          exemploBloco,
           '---',
         ]
           .filter(Boolean)
