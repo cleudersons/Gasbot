@@ -42,17 +42,21 @@ function montarAviso(p: Pedido): string {
 }
 
 async function notificar(agenciaId: string, entregadores: Entregador[], aviso: string) {
-  for (const e of entregadores) {
-    try {
-      await whatsappService.sendMessage(agenciaId, e.whatsapp, aviso);
-      console.log(`[distribuicao] aviso enviado para ${e.nome}`);
-    } catch (err: any) {
-      console.error(
-        `[distribuicao] falha em ${e.id} (${e.nome}):`,
-        err?.response?.data ?? err?.message ?? err,
-      );
-    }
-  }
+  // Paralelo em vez de série — evita travar quando algum provider tá lento
+  // (ex: Z-API com sessão morta gasta 10s antes de cair no fallback).
+  await Promise.allSettled(
+    entregadores.map(async (e) => {
+      try {
+        await whatsappService.sendMessage(agenciaId, e.whatsapp, aviso);
+        console.log(`[distribuicao] aviso enviado para ${e.nome}`);
+      } catch (err: any) {
+        console.error(
+          `[distribuicao] falha em ${e.id} (${e.nome}):`,
+          err?.response?.data ?? err?.message ?? err,
+        );
+      }
+    }),
+  );
 }
 
 async function distribuirRevezamento(

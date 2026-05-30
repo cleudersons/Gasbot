@@ -195,14 +195,20 @@ export default function SimuladorChat() {
       salvar(novoArray);
       setLoading(true);
 
+      // Timeout de 60s: se a IA demorar mais que isso, abortamos
+      // e mostramos mensagem clara em vez de ficar travado.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
       try {
         const res = await fetch('/api/configuracoes/simular-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text,
-            history: messages, // só o que veio antes
+            history: messages,
           }),
+          signal: controller.signal,
         });
         const json = await res.json();
         const reply = res.ok
@@ -216,12 +222,19 @@ export default function SimuladorChat() {
         const final = [...novoArray, assistant];
         setMessages(final);
         salvar(final);
-      } catch {
-        const erro: Mensagem = { role: 'assistant', content: '⚠️ Falha de rede' };
+      } catch (err: any) {
+        const isAbort = err?.name === 'AbortError';
+        const erro: Mensagem = {
+          role: 'assistant',
+          content: isAbort
+            ? '⚠️ Demorou demais (60s). Pode ser sobrecarga temporária — tenta de novo.'
+            : '⚠️ Falha de rede. Confere sua conexão e tenta de novo.',
+        };
         const final = [...novoArray, erro];
         setMessages(final);
         salvar(final);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     },
