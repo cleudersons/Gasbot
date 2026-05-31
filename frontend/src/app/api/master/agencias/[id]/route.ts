@@ -87,3 +87,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ agencia: data });
 }
+
+// Soft delete — marca deletada_em. Não remove pedidos/conversas pra preservar
+// histórico. Listagens em /api/master/agencias já filtram deletada_em IS NULL.
+// O webhook do WhatsApp continua checando status_conta='suspenso' e agente_ativo,
+// mas pra garantir que ag deletada não atende, marcamos também agente_ativo=false.
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const guard = await requireMaster();
+  if (isErrorResponse(guard)) return guard;
+
+  const { error } = await supabaseAdmin()
+    .from('agencias')
+    .update({
+      deletada_em: new Date().toISOString(),
+      agente_ativo: false,
+    })
+    .eq('id', params.id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

@@ -10,7 +10,10 @@ export async function GET() {
   const db = supabaseAdmin();
   const { data: agencias, error } = await db
     .from('agencias')
-    .select('id, nome, plano, status_conta, whatsapp_dono, trial_inicio')
+    .select(
+      'id, nome, plano, status_conta, whatsapp_dono, trial_inicio, vencimento_plano, inadimplente_desde, suspensa_em, zapi_instance_id, phone_number_id, provider',
+    )
+    .is('deletada_em', null)
     .order('nome');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
