@@ -1,12 +1,23 @@
 import { auth, signOut } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Building2, BarChart3, Settings, LogOut, CreditCard, Bell, Crown } from 'lucide-react';
+import { Building2, BarChart3, Settings, LogOut, CreditCard, Bell, Crown, MessageCircle } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { supabaseAdmin } from '@/lib/supabase-server';
 
 export default async function MasterLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   const userName = session?.user?.name ?? 'Admin';
+
+  // Badge: tickets de suporte aguardando resposta do admin
+  let ticketsAbertos = 0;
+  try {
+    const { count } = await supabaseAdmin()
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'aberto');
+    ticketsAbertos = count ?? 0;
+  } catch {}
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -21,6 +32,12 @@ export default async function MasterLayout({ children }: { children: React.React
           <MasterLink href="/master/planos" icon={<CreditCard size={18} />} label="Planos" />
           <MasterLink href="/master/metricas" icon={<BarChart3 size={18} />} label="Métricas" />
           <MasterLink href="/master/notificacoes" icon={<Bell size={18} />} label="Notificações" />
+          <MasterLink
+            href="/master/suporte"
+            icon={<MessageCircle size={18} />}
+            label="Suporte"
+            badge={ticketsAbertos > 0 ? String(ticketsAbertos) : undefined}
+          />
           <MasterLink href="/master/fundador-feedback" icon={<Crown size={18} />} label="Fundadores" />
           <MasterLink href="/master/configuracoes" icon={<Settings size={18} />} label="Configurações" />
         </nav>
@@ -60,14 +77,29 @@ export default async function MasterLayout({ children }: { children: React.React
   );
 }
 
-function MasterLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
+function MasterLink({
+  href,
+  icon,
+  label,
+  badge,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  badge?: string;
+}) {
   return (
     <Link
       href={href}
       className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition"
     >
       {icon}
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+      {badge && (
+        <span className="text-[10px] font-bold bg-orange-500 text-white px-1.5 py-0.5 rounded-full">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }

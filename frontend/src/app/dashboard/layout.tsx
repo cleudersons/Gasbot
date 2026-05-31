@@ -13,6 +13,7 @@ import {
   CreditCard,
   User,
   AlertCircle,
+  MessageCircle,
 } from 'lucide-react';
 import TrialBanner from '@/components/TrialBanner';
 import Logo from '@/components/Logo';
@@ -38,6 +39,7 @@ export default async function DashboardLayout({
   let passosCompletos = 1; // conta criada
   let ehFundador = false;
   let perfilOk = true;
+  let suporteNaoLidas = 0;
 
   if (agenciaId) {
     const db = supabaseAdmin();
@@ -70,6 +72,22 @@ export default async function DashboardLayout({
       mostrarInicio = statusConta === 'trial' || dias <= 7;
     }
     entregadoresOk = (entCount ?? 0) >= 1;
+
+    // Conta respostas de suporte não-lidas pra badge no menu
+    const { data: ticketsAg } = await db
+      .from('tickets')
+      .select('id')
+      .eq('agencia_id', agenciaId);
+    const ticketIds = (ticketsAg ?? []).map((t) => t.id);
+    if (ticketIds.length > 0) {
+      const { count } = await db
+        .from('ticket_mensagens')
+        .select('id', { count: 'exact', head: true })
+        .in('ticket_id', ticketIds)
+        .eq('autor', 'admin')
+        .eq('lida', false);
+      suporteNaoLidas = count ?? 0;
+    }
 
     const testeOk = trialAtendimentos >= 1;
     passosCompletos = [
@@ -105,6 +123,12 @@ export default async function DashboardLayout({
           <NavLink href="/dashboard/conexao" icon={<Plug size={18} />} label="Conexão" />
           <NavLink href="/dashboard/planos" icon={<CreditCard size={18} />} label="Planos" />
           <NavLink href="/dashboard/minha-conta" icon={<User size={18} />} label="Minha conta" />
+          <NavLink
+            href="/dashboard/suporte"
+            icon={<MessageCircle size={18} />}
+            label="Suporte"
+            badge={suporteNaoLidas > 0 ? String(suporteNaoLidas) : undefined}
+          />
           <NavLink href="/dashboard/configuracoes" icon={<Settings size={18} />} label="Configurações" />
         </nav>
 

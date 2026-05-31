@@ -151,3 +151,35 @@ export async function enviarEmailRedefinirSenha(params: {
     html: templateBase('Redefinir senha SutoGas', corpo),
   });
 }
+
+export async function enviarEmailRespostaSuporte(params: {
+  to: string;
+  assunto: string;
+  mensagem: string;
+  ticketId: string;
+}): Promise<boolean> {
+  const { to, assunto, mensagem, ticketId } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+  const link = `${appUrl}/dashboard/suporte/${ticketId}`;
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Você tem uma resposta do suporte 💬</h1>
+    <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">TICKET</p>
+    <p style="margin:0 0 16px;font-weight:600;color:#1A1A2E;">${assunto}</p>
+    <div style="background:#F8F5F0;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin:0 0 20px;color:#374151;line-height:1.55;white-space:pre-wrap;">${mensagem.replace(/</g, '&lt;')}</div>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${link}" style="display:inline-block;background:#F5721B;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Ver no painel
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">
+      Pra responder, entre no painel e abra o ticket — assim mantemos todo o histórico em um lugar só.
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: `SutoGas — Resposta do suporte: ${assunto}`,
+    html: templateBase('Resposta do suporte', corpo),
+  });
+}
