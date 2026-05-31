@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { getSupabase } from '../lib/supabase';
-import { enviarEmailBoasVindasComSenha, enviarEmailRenovacaoConfirmada } from '../lib/email';
-import { notificarNovoCadastro } from '../services/admin-agent.service';
+import {
+  enviarEmailBoasVindasComSenha,
+  enviarEmailRenovacaoConfirmada,
+  enviarEmailCobrancaFalhou,
+} from '../lib/email';
+import { notificarNovoCadastro, registrarEvento } from '../services/admin-agent.service';
 
 async function registrarNoSutoflyForm(dados: { nome: string; email: string; whatsapp?: string }) {
   const formId = process.env.SUTOFLY_FORM_ID?.trim() ?? '6';
@@ -67,6 +71,67 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
     const recorrente: boolean = body.recorrente === true;
     const proximaCobranca: string | null = body.proxima_cobranca ?? null;
     const asaasId: string | null = body.asaas_id ?? null;
+
+    if (evento === 'pagamento_falhou') {
+      if (!email && !agenciaIdRecebida) {
+        return res.status(400).json({ error: 'email ou agencia_id obrigatório' });
+      }
+      const db = getSupabase();
+      let agId = agenciaIdRecebida ?? null;
+      let emailDono = email ?? null;
+      if (!agId && email) {
+        const { data: u } = await db
+          .from('usuarios')
+          .select('agencia_id')
+          .eq('email', email)
+          .maybeSingle();
+        agId = u?.agencia_id ?? null;
+      }
+      if (!agId) {
+        return res.status(404).json({ error: 'Agência não encontrada' });
+      }
+      const { data: ag } = await db
+        .from('agencias')
+        .select('id, nome, plano, inadimplente_desde')
+        .eq('id', agId)
+        .maybeSingle();
+      if (!ag) {
+        return res.status(404).json({ error: 'Agência não encontrada' });
+      }
+      // Se já está inadimplente, não reinicia o relógio dos 3 dias.
+      const updates: Record<string, unknown> = { status_conta: 'inadimplente' };
+      if (!ag.inadimplente_desde) {
+        updates.inadimplente_desde = new Date().toISOString();
+      }
+      await db.from('agencias').update(updates).eq('id', agId);
+
+      if (!emailDono) {
+        const { data: u2 } = await db
+          .from('usuarios')
+          .select('email')
+          .eq('agencia_id', agId)
+          .order('criado_em', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        emailDono = u2?.email ?? null;
+      }
+      if (emailDono) {
+        enviarEmailCobrancaFalhou({ to: emailDono, plano: ag.plano }).catch((err) => {
+          console.error('[webhook/checkout] falha email cobrança falhou:', err?.message ?? err);
+        });
+      }
+      registrarEvento({
+        tipo: 'cobranca_falhou',
+        titulo: 'Cobrança falhou',
+        descricao: `${ag.nome}${emailDono ? ` (${emailDono})` : ''} — plano ${ag.plano ?? '—'}`,
+        severidade: 'aviso',
+        agenciaId: agId,
+        dados: { valor, asaasId, email: emailDono },
+      }).catch(() => {});
+
+      console.log(`[webhook/checkout] pagamento_falhou agencia=${agId}`);
+      return res.json({ ok: true, agencia_id: agId, status: 'inadimplente' });
+    }
 
     if (evento !== 'pagamento_confirmado') {
       return res.status(400).json({ error: `Evento não suportado: ${evento}` });
@@ -167,6 +232,8 @@ router.post('/webhook/checkout', async (req: Request, res: Response) => {
       ultimo_pagamento_asaas: asaasId,
       recorrencia_ativa: recorrente,
       proxima_cobranca: proximaCobranca,
+      inadimplente_desde: null,
+      suspensa_em: null,
     };
     if (mapping.fundador) {
       const ate = new Date(agora);

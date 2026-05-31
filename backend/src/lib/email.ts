@@ -168,6 +168,78 @@ export async function enviarEmailRenovacaoConfirmada(params: {
   });
 }
 
+// Disparado pelo webhook 'pagamento_falhou' (ou pelo job de vencimento ao detectar
+// vencimento_plano expirado). Marca o início dos 3 dias de tolerância.
+export async function enviarEmailCobrancaFalhou(params: {
+  to: string;
+  plano?: string | null;
+}): Promise<boolean> {
+  const { to, plano } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Não conseguimos processar sua cobrança ⚠️</h1>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      A última tentativa de cobrança ${plano ? `do seu plano <strong>${plano}</strong>` : 'da sua assinatura'} não foi aprovada.
+      Pode ter sido cartão sem limite, dado desatualizado ou algo passageiro.
+    </p>
+    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:16px;margin:0 0 20px;">
+      <p style="margin:0;line-height:1.55;color:#9A3412;font-size:14px;">
+        <strong>Você tem 3 dias</strong> para regularizar antes que o atendimento automático seja suspenso.
+      </p>
+    </div>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${appUrl}/dashboard/minha-conta" style="display:inline-block;background:#F5721B;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Regularizar agora
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">
+      Já regularizou? Pode ignorar esta mensagem — a confirmação chega em alguns minutos.
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: 'SutoGas — Não conseguimos processar sua cobrança',
+    html: templateBase('Cobrança não aprovada', corpo),
+  });
+}
+
+// Disparado pelo job de vencimento quando passam 3 dias da inadimplência sem
+// regularização. Conta entra em status 'suspenso' e o agente para de atender.
+export async function enviarEmailContaSuspensa(params: {
+  to: string;
+}): Promise<boolean> {
+  const { to } = params;
+  const appUrl = envClean('APP_URL') ?? 'https://sutogas.com.br';
+
+  const corpo = `
+    <h1 style="margin:0 0 16px;font-size:22px;color:#1A1A2E;">Sua conta foi suspensa 🚫</h1>
+    <p style="margin:0 0 16px;line-height:1.55;color:#374151;">
+      Como não conseguimos regularizar sua cobrança nos últimos dias,
+      <strong>o agente parou de atender seus clientes agora</strong>.
+    </p>
+    <p style="margin:0 0 20px;line-height:1.55;color:#374151;">
+      Pra reativar é simples: regularize o pagamento e em poucos minutos tudo volta ao normal.
+      Suas configurações, prompt e histórico continuam salvos.
+    </p>
+    <div style="text-align:center;margin:0 0 24px;">
+      <a href="${appUrl}/dashboard/minha-conta" style="display:inline-block;background:#DC2626;color:#ffffff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;font-size:15px;">
+        Reativar minha conta
+      </a>
+    </div>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">
+      Dúvida ou problema com o pagamento? Responda este email que a gente ajuda.
+    </p>
+  `;
+
+  return enviarEmail({
+    to,
+    subject: 'SutoGas — Sua conta foi suspensa',
+    html: templateBase('Conta suspensa', corpo),
+  });
+}
+
 // Disparado pelo job D+2 fundador para convidar a participar do feedback.
 export async function enviarEmailFeedbackFundador(params: {
   to: string;

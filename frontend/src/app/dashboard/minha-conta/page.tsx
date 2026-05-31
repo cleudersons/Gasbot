@@ -42,7 +42,7 @@ export default async function MinhaContaPage() {
     ? await db
         .from('agencias')
         .select(
-          'nome, plano, status_conta, trial_inicio, trial_atendimentos, vencimento_plano, limite_atendimentos, programa_fundador, fundador_desconto_ate, whatsapp_dono, proxima_cobranca, recorrencia_ativa, nome_deposito, cidade, estado, cpf_cnpj',
+          'nome, plano, status_conta, trial_inicio, trial_atendimentos, vencimento_plano, limite_atendimentos, programa_fundador, fundador_desconto_ate, whatsapp_dono, proxima_cobranca, recorrencia_ativa, nome_deposito, cidade, estado, cpf_cnpj, inadimplente_desde, suspensa_em',
         )
         .eq('id', agenciaId)
         .maybeSingle()
@@ -55,6 +55,39 @@ export default async function MinhaContaPage() {
     : null;
   const diasTrial = ehTrial ? diasRestantes(trialFim) : null;
   const diasVencimento = !ehTrial ? diasRestantes(ag?.vencimento_plano) : null;
+
+  // Banner de status: prioridade suspenso > inadimplente > vencimento próximo
+  const statusConta = ag?.status_conta;
+  let banner: { tipo: 'suspenso' | 'inadimplente' | 'vencendo'; titulo: string; mensagem: string } | null = null;
+  if (statusConta === 'suspenso') {
+    banner = {
+      tipo: 'suspenso',
+      titulo: 'Sua conta está suspensa',
+      mensagem: 'O agente parou de atender seus clientes. Renove o pagamento para reativar.',
+    };
+  } else if (statusConta === 'inadimplente') {
+    const desde = ag?.inadimplente_desde ? new Date(ag.inadimplente_desde) : null;
+    const diasDecorridos = desde
+      ? Math.floor((Date.now() - desde.getTime()) / (24 * 60 * 60 * 1000))
+      : 0;
+    const diasRestantesSuspensao = Math.max(0, 3 - diasDecorridos);
+    banner = {
+      tipo: 'inadimplente',
+      titulo: 'Sua última cobrança não foi aprovada',
+      mensagem:
+        diasRestantesSuspensao > 0
+          ? `Renove em até ${diasRestantesSuspensao} dia${diasRestantesSuspensao === 1 ? '' : 's'} para o agente não suspender o atendimento.`
+          : 'Sua conta será suspensa a qualquer momento. Renove agora.',
+    };
+  } else if (!ehTrial && diasVencimento != null && diasVencimento <= 3) {
+    banner = {
+      tipo: 'vencendo',
+      titulo: `Sua renovação vence em ${diasVencimento} dia${diasVencimento === 1 ? '' : 's'}`,
+      mensagem: ag?.recorrencia_ativa
+        ? 'A cobrança automática deve acontecer na data do vencimento. Se algo der errado, avisamos por email.'
+        : 'Sua assinatura não tem recorrência ativa. Renove para não interromper o atendimento.',
+    };
+  }
 
   // Contagem de pedidos confirmados nos últimos 30 dias (plano pago)
   // ou desde o início do trial (trial). Usado para mostrar uso vs limite.
@@ -80,6 +113,8 @@ export default async function MinhaContaPage() {
           Seus dados e o status da sua assinatura.
         </p>
       </div>
+
+      {banner && <BannerStatus banner={banner} />}
 
       <section className="bg-white border border-gray-200 rounded-2xl p-6">
         <h2 className="text-lg font-semibold mb-4">Dados da conta</h2>
@@ -173,6 +208,49 @@ export default async function MinhaContaPage() {
           </Link>
         </div>
       </section>
+    </div>
+  );
+}
+
+function BannerStatus({
+  banner,
+}: {
+  banner: { tipo: 'suspenso' | 'inadimplente' | 'vencendo'; titulo: string; mensagem: string };
+}) {
+  const estilos: Record<typeof banner.tipo, { box: string; titulo: string; texto: string; botao: string; ctaLabel: string }> = {
+    suspenso: {
+      box: 'bg-red-50 border-red-300',
+      titulo: 'text-red-900',
+      texto: 'text-red-800',
+      botao: 'bg-red-600 hover:bg-red-700',
+      ctaLabel: 'Reativar minha conta',
+    },
+    inadimplente: {
+      box: 'bg-amber-50 border-amber-300',
+      titulo: 'text-amber-900',
+      texto: 'text-amber-800',
+      botao: 'bg-amber-600 hover:bg-amber-700',
+      ctaLabel: 'Regularizar agora',
+    },
+    vencendo: {
+      box: 'bg-sky-50 border-sky-300',
+      titulo: 'text-sky-900',
+      texto: 'text-sky-800',
+      botao: 'bg-sky-600 hover:bg-sky-700',
+      ctaLabel: 'Renovar',
+    },
+  };
+  const s = estilos[banner.tipo];
+  return (
+    <div className={`border rounded-2xl p-5 ${s.box}`}>
+      <h2 className={`font-semibold ${s.titulo}`}>{banner.titulo}</h2>
+      <p className={`text-sm mt-1 ${s.texto}`}>{banner.mensagem}</p>
+      <Link
+        href="/dashboard/planos"
+        className={`inline-block mt-4 text-white font-medium px-4 py-2 rounded-lg transition ${s.botao}`}
+      >
+        {s.ctaLabel}
+      </Link>
     </div>
   );
 }
