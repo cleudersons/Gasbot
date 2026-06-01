@@ -39,12 +39,26 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const mesStart = new Date();
   mesStart.setDate(1);
   mesStart.setHours(0, 0, 0, 0);
+  const mesAnteriorStart = new Date(mesStart);
+  mesAnteriorStart.setMonth(mesAnteriorStart.getMonth() - 1);
 
-  const [{ count: hoje }, { count: mes }, { count: entregadoresAtivos }] = await Promise.all([
+  const [
+    { count: hoje },
+    { count: mes },
+    { count: mesAnterior },
+    { count: total },
+    { count: entregadoresAtivos },
+  ] = await Promise.all([
     db.from('pedidos').select('id', { count: 'exact', head: true })
       .eq('agencia_id', params.id).gte('criado_em', hojeStart.toISOString()),
     db.from('pedidos').select('id', { count: 'exact', head: true })
       .eq('agencia_id', params.id).gte('criado_em', mesStart.toISOString()),
+    db.from('pedidos').select('id', { count: 'exact', head: true })
+      .eq('agencia_id', params.id)
+      .gte('criado_em', mesAnteriorStart.toISOString())
+      .lt('criado_em', mesStart.toISOString()),
+    db.from('pedidos').select('id', { count: 'exact', head: true })
+      .eq('agencia_id', params.id),
     db.from('entregadores').select('id', { count: 'exact', head: true })
       .eq('agencia_id', params.id).eq('ativo', true),
   ]);
@@ -55,6 +69,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     metricas: {
       hoje: hoje ?? 0,
       mes: mes ?? 0,
+      mes_anterior: mesAnterior ?? 0,
+      total: total ?? 0,
       entregadores_ativos: entregadoresAtivos ?? 0,
     },
   });

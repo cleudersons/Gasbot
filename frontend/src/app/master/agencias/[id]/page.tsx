@@ -44,7 +44,7 @@ interface Pedido {
 interface Detalhes {
   agencia: AgenciaDetalhe;
   pedidos: Pedido[];
-  metricas: { hoje: number; mes: number; entregadores_ativos: number };
+  metricas: { hoje: number; mes: number; mes_anterior: number; total: number; entregadores_ativos: number };
 }
 
 export default function MasterAgenciaDetalhePage() {
@@ -157,9 +157,11 @@ export default function MasterAgenciaDetalhePage() {
         <p className="text-sm text-gray-500">ID: {a.id}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card label="Pedidos hoje" value={data.metricas.hoje} />
         <Card label="Pedidos no mês" value={data.metricas.mes} />
+        <Card label="Mês anterior" value={data.metricas.mes_anterior} />
+        <Card label="Total acumulado" value={data.metricas.total} />
         <Card label="Entregadores ativos" value={data.metricas.entregadores_ativos} />
       </div>
 

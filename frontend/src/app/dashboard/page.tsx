@@ -89,11 +89,13 @@ export default function PedidosPage() {
         </button>
       </div>
 
+      <HistoricoCards />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total" value={counts.total} color="text-gray-900" />
+        <StatCard label="Total ativos" value={counts.total} color="text-gray-900" />
         <StatCard label="Pendentes" value={counts.pendentes} color="text-yellow-600" />
         <StatCard label="Aceitos" value={counts.aceitos} color="text-blue-600" />
-        <StatCard label="Entregues" value={counts.entregues} color="text-green-600" />
+        <StatCard label="Entregues hoje" value={counts.entregues} color="text-green-600" />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -241,6 +243,24 @@ function StatCard({ label, value, color }: { label: string; value: number; color
     <div className="bg-white rounded-xl border border-gray-200 p-4">
       <div className="text-sm text-gray-500">{label}</div>
       <div className={`text-3xl font-bold mt-1 ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+function HistoricoCards() {
+  const [m, setM] = useState<{ hoje: number; mes: number; mes_anterior: number; total: number } | null>(null);
+  useEffect(() => {
+    fetch('/api/agencia/metricas')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setM(d));
+  }, []);
+  if (!m) return null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+      <StatCard label="Pedidos hoje" value={m.hoje} color="text-orange-600" />
+      <StatCard label="Pedidos no mês" value={m.mes} color="text-gray-900" />
+      <StatCard label="Mês anterior" value={m.mes_anterior} color="text-gray-700" />
+      <StatCard label="Total acumulado" value={m.total} color="text-gray-900" />
     </div>
   );
 }
