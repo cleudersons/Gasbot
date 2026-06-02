@@ -12,6 +12,9 @@ const ALLOWED = new Set([
   'timezone',
   'distribuicao_modo',
   'agente_ativo',
+  'fim_semana_modo',
+  'fim_semana_inicio',
+  'fim_semana_fim',
 ]);
 
 export async function GET() {
@@ -24,7 +27,8 @@ export async function GET() {
       'id, nome, provider, whatsapp_dono, relatorio_frequencia, prompt_customizado, ' +
         'phone_number_id, zapi_instance_id, zapi_token, zapi_status, status_conta, ' +
         'trial_inicio, trial_atendimentos, horario_inicio, horario_fim, atendimento_ativo, ' +
-        'timezone, distribuicao_modo, agente_ativo',
+        'timezone, distribuicao_modo, agente_ativo, ' +
+        'fim_semana_modo, fim_semana_inicio, fim_semana_fim',
     )
     .eq('id', agenciaId)
     .single();

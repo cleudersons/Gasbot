@@ -25,6 +25,9 @@ interface Agencia {
   timezone?: string | null;
   distribuicao_modo?: string | null;
   agente_ativo?: boolean | null;
+  fim_semana_modo?: 'mesmo' | 'fechado' | 'customizado' | null;
+  fim_semana_inicio?: string | null;
+  fim_semana_fim?: string | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -45,6 +48,9 @@ export default function ConfiguracoesPage() {
   const [horarioInicio, setHorarioInicio] = useState('08:00');
   const [horarioFim, setHorarioFim] = useState('22:00');
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
+  const [fimSemanaModo, setFimSemanaModo] = useState<'mesmo' | 'fechado' | 'customizado'>('mesmo');
+  const [fimSemanaInicio, setFimSemanaInicio] = useState('08:00');
+  const [fimSemanaFim, setFimSemanaFim] = useState('22:00');
 
   const [distribuicaoModo, setDistribuicaoModo] = useState('todos');
 
@@ -80,6 +86,9 @@ export default function ConfiguracoesPage() {
         setHorarioInicio((a.horario_inicio ?? '08:00:00').slice(0, 5));
         setHorarioFim((a.horario_fim ?? '22:00:00').slice(0, 5));
         setTimezone(a.timezone ?? 'America/Sao_Paulo');
+        setFimSemanaModo(a.fim_semana_modo ?? 'mesmo');
+        setFimSemanaInicio((a.fim_semana_inicio ?? '08:00:00').slice(0, 5));
+        setFimSemanaFim((a.fim_semana_fim ?? '22:00:00').slice(0, 5));
         setDistribuicaoModo(a.distribuicao_modo ?? 'todos');
         setAgenteAtivo(a.agente_ativo ?? true);
       }
@@ -204,6 +213,9 @@ export default function ConfiguracoesPage() {
         horario_inicio: horarioInicio,
         horario_fim: horarioFim,
         timezone,
+        fim_semana_modo: fimSemanaModo,
+        fim_semana_inicio: fimSemanaModo === 'customizado' ? fimSemanaInicio : null,
+        fim_semana_fim: fimSemanaModo === 'customizado' ? fimSemanaFim : null,
       }),
     });
     setSavingHorario(false);
@@ -718,6 +730,54 @@ export default function ConfiguracoesPage() {
               <option value="America/Cuiaba">America/Cuiaba</option>
             </select>
           </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-4 mt-4 mb-3">
+          <h3 className="font-semibold mb-1">Fim de semana</h3>
+          <p className="text-sm text-gray-500 mb-3">
+            Como atender aos sábados e domingos.
+          </p>
+
+          <div className="space-y-2 mb-3">
+            {[
+              { v: 'mesmo' as const, label: 'Mesmo horário de segunda a sexta' },
+              { v: 'fechado' as const, label: 'Fechado nos fins de semana' },
+              { v: 'customizado' as const, label: 'Horário customizado pro fim de semana' },
+            ].map((opt) => (
+              <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="fim_semana_modo"
+                  checked={fimSemanaModo === opt.v}
+                  onChange={() => setFimSemanaModo(opt.v)}
+                />
+                <span className="text-sm">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {fimSemanaModo === 'customizado' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Início (sáb/dom)</label>
+                <input
+                  type="time"
+                  value={fimSemanaInicio}
+                  onChange={(e) => setFimSemanaInicio(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Fim (sáb/dom)</label>
+                <input
+                  type="time"
+                  value={fimSemanaFim}
+                  onChange={(e) => setFimSemanaFim(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <button
