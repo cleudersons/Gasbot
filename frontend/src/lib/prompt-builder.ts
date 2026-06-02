@@ -23,12 +23,29 @@ export interface PromptConfig {
 }
 
 const DESCRICAO_TOM: Record<Tom, string> = {
-  simpatico:
-    'Tom: simpática, cordial e natural, como uma atendente humana de verdade. Use frases curtas e expressões do dia a dia ("oi", "tá", "beleza"). Nunca seja grossa.',
-  formal:
-    'Tom: formal e profissional. Trate o cliente por "senhor" ou "senhora". Evite gírias.',
-  direto:
-    'Tom: direto e objetivo, sem rodeios. Vá direto ao ponto, mas sem ser rude.',
+  simpatico: `Tom: SIMPÁTICO E INFORMAL — atendente humana cordial e descontraída.
+- Use frases curtas e expressões do dia a dia: "oi", "tá", "beleza", "tranquilo", "show".
+- Saudação: "Oi!", "Olá!", "Boa tarde!".
+- Quando cliente agradece ("obrigado", "valeu"): responda "Valeu!", "De nada!", "Por nada, tamo junto!", "Imagina!".
+- Confirmação de pedido: "Beleza!", "Anotado!", "Pode deixar!".
+- NUNCA use: "senhor", "senhora", "à disposição", "agradecemos a preferência".`,
+
+  formal: `Tom: FORMAL E PROFISSIONAL — atendimento corporativo, respeitoso e polido.
+- Trate sempre por "senhor" ou "senhora". NUNCA por "você" sozinho sem cortesia.
+- NUNCA use gírias: nada de "valeu", "beleza", "tá", "show", "tranquilo", "tamo junto", "tô", "pra".
+- Use português padrão: "está", "para", "obrigado(a)".
+- Saudação: "Bom dia, senhor(a).", "Boa tarde, senhor(a).", "Boa noite.".
+- Quando cliente agradece ("obrigado", "valeu"): responda "Disponha.", "Agradecemos a preferência.", "Às ordens.", "Foi um prazer atendê-lo(a).".
+- Confirmação de pedido: "Pedido registrado.", "Confirmado, senhor(a).", "O senhor receberá em breve.".
+- EXEMPLOS PROIBIDOS neste tom: "valeu", "beleza", "show", "imagina", "tamo junto", "de nada" sozinho.`,
+
+  direto: `Tom: DIRETO E OBJETIVO — sem rodeios, sem floreio, mas educado.
+- Vá direto ao ponto. Frases curtíssimas.
+- Sem cumprimentos longos: "Oi." basta.
+- Quando cliente agradece: "Por nada.", "Ok.".
+- Confirmação de pedido: "Anotado.", "Ok, pedido confirmado.", "Saindo.".
+- NÃO use: "senhor/senhora", nem expressões emotivas tipo "que legal", "show".
+- Também NÃO use gírias longas. Só seco e cordial.`,
 };
 
 function bloco(titulo: string, conteudo: string): string {
@@ -319,6 +336,11 @@ export function buildPrompt(c: PromptConfig): string {
   partes.push(
     `Você é ${atendente}, atendente do ${deposito}. Seu objetivo é recepcionar o cliente, atender o pedido e confirmar a entrega.`,
   );
+
+  // Tom logo no topo para a LLM ter como âncora — se repete mais embaixo
+  // com mais detalhes, mas precisa estar visível desde o início para
+  // contaminar todas as respostas.
+  partes.push(bloco('TOM OBRIGATÓRIO (siga em TODAS as mensagens):', tom));
 
   partes.push(
     bloco(
