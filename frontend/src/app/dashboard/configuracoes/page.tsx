@@ -25,9 +25,12 @@ interface Agencia {
   timezone?: string | null;
   distribuicao_modo?: string | null;
   agente_ativo?: boolean | null;
-  fim_semana_modo?: 'mesmo' | 'fechado' | 'customizado' | null;
-  fim_semana_inicio?: string | null;
-  fim_semana_fim?: string | null;
+  sabado_modo?: 'mesmo' | 'fechado' | 'customizado' | null;
+  sabado_inicio?: string | null;
+  sabado_fim?: string | null;
+  domingo_modo?: 'mesmo' | 'fechado' | 'customizado' | null;
+  domingo_inicio?: string | null;
+  domingo_fim?: string | null;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -48,9 +51,12 @@ export default function ConfiguracoesPage() {
   const [horarioInicio, setHorarioInicio] = useState('08:00');
   const [horarioFim, setHorarioFim] = useState('22:00');
   const [timezone, setTimezone] = useState('America/Sao_Paulo');
-  const [fimSemanaModo, setFimSemanaModo] = useState<'mesmo' | 'fechado' | 'customizado'>('mesmo');
-  const [fimSemanaInicio, setFimSemanaInicio] = useState('08:00');
-  const [fimSemanaFim, setFimSemanaFim] = useState('22:00');
+  const [sabadoModo, setSabadoModo] = useState<'mesmo' | 'fechado' | 'customizado'>('mesmo');
+  const [sabadoInicio, setSabadoInicio] = useState('08:00');
+  const [sabadoFim, setSabadoFim] = useState('22:00');
+  const [domingoModo, setDomingoModo] = useState<'mesmo' | 'fechado' | 'customizado'>('mesmo');
+  const [domingoInicio, setDomingoInicio] = useState('08:00');
+  const [domingoFim, setDomingoFim] = useState('22:00');
 
   const [distribuicaoModo, setDistribuicaoModo] = useState('todos');
 
@@ -86,9 +92,12 @@ export default function ConfiguracoesPage() {
         setHorarioInicio((a.horario_inicio ?? '08:00:00').slice(0, 5));
         setHorarioFim((a.horario_fim ?? '22:00:00').slice(0, 5));
         setTimezone(a.timezone ?? 'America/Sao_Paulo');
-        setFimSemanaModo(a.fim_semana_modo ?? 'mesmo');
-        setFimSemanaInicio((a.fim_semana_inicio ?? '08:00:00').slice(0, 5));
-        setFimSemanaFim((a.fim_semana_fim ?? '22:00:00').slice(0, 5));
+        setSabadoModo(a.sabado_modo ?? 'mesmo');
+        setSabadoInicio((a.sabado_inicio ?? '08:00:00').slice(0, 5));
+        setSabadoFim((a.sabado_fim ?? '22:00:00').slice(0, 5));
+        setDomingoModo(a.domingo_modo ?? 'mesmo');
+        setDomingoInicio((a.domingo_inicio ?? '08:00:00').slice(0, 5));
+        setDomingoFim((a.domingo_fim ?? '22:00:00').slice(0, 5));
         setDistribuicaoModo(a.distribuicao_modo ?? 'todos');
         setAgenteAtivo(a.agente_ativo ?? true);
       }
@@ -213,9 +222,12 @@ export default function ConfiguracoesPage() {
         horario_inicio: horarioInicio,
         horario_fim: horarioFim,
         timezone,
-        fim_semana_modo: fimSemanaModo,
-        fim_semana_inicio: fimSemanaModo === 'customizado' ? fimSemanaInicio : null,
-        fim_semana_fim: fimSemanaModo === 'customizado' ? fimSemanaFim : null,
+        sabado_modo: sabadoModo,
+        sabado_inicio: sabadoModo === 'customizado' ? sabadoInicio : null,
+        sabado_fim: sabadoModo === 'customizado' ? sabadoFim : null,
+        domingo_modo: domingoModo,
+        domingo_inicio: domingoModo === 'customizado' ? domingoInicio : null,
+        domingo_fim: domingoModo === 'customizado' ? domingoFim : null,
       }),
     });
     setSavingHorario(false);
@@ -732,52 +744,27 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-4 mt-4 mb-3">
-          <h3 className="font-semibold mb-1">Fim de semana</h3>
-          <p className="text-sm text-gray-500 mb-3">
-            Como atender aos sábados e domingos.
-          </p>
-
-          <div className="space-y-2 mb-3">
-            {[
-              { v: 'mesmo' as const, label: 'Mesmo horário de segunda a sexta' },
-              { v: 'fechado' as const, label: 'Fechado nos fins de semana' },
-              { v: 'customizado' as const, label: 'Horário customizado pro fim de semana' },
-            ].map((opt) => (
-              <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="fim_semana_modo"
-                  checked={fimSemanaModo === opt.v}
-                  onChange={() => setFimSemanaModo(opt.v)}
-                />
-                <span className="text-sm">{opt.label}</span>
-              </label>
-            ))}
-          </div>
-
-          {fimSemanaModo === 'customizado' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Início (sáb/dom)</label>
-                <input
-                  type="time"
-                  value={fimSemanaInicio}
-                  onChange={(e) => setFimSemanaInicio(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Fim (sáb/dom)</label>
-                <input
-                  type="time"
-                  value={fimSemanaFim}
-                  onChange={(e) => setFimSemanaFim(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                />
-              </div>
-            </div>
-          )}
+        <div className="border-t border-gray-200 pt-4 mt-4 mb-3 space-y-5">
+          <ConfigDia
+            label="Sábado"
+            modo={sabadoModo}
+            onModo={setSabadoModo}
+            inicio={sabadoInicio}
+            onInicio={setSabadoInicio}
+            fim={sabadoFim}
+            onFim={setSabadoFim}
+            name="sabado_modo"
+          />
+          <ConfigDia
+            label="Domingo"
+            modo={domingoModo}
+            onModo={setDomingoModo}
+            inicio={domingoInicio}
+            onInicio={setDomingoInicio}
+            fim={domingoFim}
+            onFim={setDomingoFim}
+            name="domingo_modo"
+          />
         </div>
 
         <button
@@ -866,6 +853,72 @@ function Field({
         placeholder={placeholder}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
       />
+    </div>
+  );
+}
+
+function ConfigDia({
+  label,
+  modo,
+  onModo,
+  inicio,
+  onInicio,
+  fim,
+  onFim,
+  name,
+}: {
+  label: string;
+  modo: 'mesmo' | 'fechado' | 'customizado';
+  onModo: (v: 'mesmo' | 'fechado' | 'customizado') => void;
+  inicio: string;
+  onInicio: (v: string) => void;
+  fim: string;
+  onFim: (v: string) => void;
+  name: string;
+}) {
+  return (
+    <div>
+      <h3 className="font-semibold mb-2">{label}</h3>
+      <div className="space-y-1.5 mb-2">
+        {[
+          { v: 'mesmo' as const, lbl: 'Mesmo horário dos dias úteis' },
+          { v: 'fechado' as const, lbl: 'Fechado' },
+          { v: 'customizado' as const, lbl: 'Horário customizado' },
+        ].map((opt) => (
+          <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={name}
+              checked={modo === opt.v}
+              onChange={() => onModo(opt.v)}
+            />
+            <span className="text-sm">{opt.lbl}</span>
+          </label>
+        ))}
+      </div>
+
+      {modo === 'customizado' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Início</label>
+            <input
+              type="time"
+              value={inicio}
+              onChange={(e) => onInicio(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Fim</label>
+            <input
+              type="time"
+              value={fim}
+              onChange={(e) => onFim(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

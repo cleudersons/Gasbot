@@ -12,9 +12,12 @@ const ALLOWED = new Set([
   'timezone',
   'distribuicao_modo',
   'agente_ativo',
-  'fim_semana_modo',
-  'fim_semana_inicio',
-  'fim_semana_fim',
+  'sabado_modo',
+  'sabado_inicio',
+  'sabado_fim',
+  'domingo_modo',
+  'domingo_inicio',
+  'domingo_fim',
 ]);
 
 export async function GET() {
@@ -28,7 +31,8 @@ export async function GET() {
         'phone_number_id, zapi_instance_id, zapi_token, zapi_status, status_conta, ' +
         'trial_inicio, trial_atendimentos, horario_inicio, horario_fim, atendimento_ativo, ' +
         'timezone, distribuicao_modo, agente_ativo, ' +
-        'fim_semana_modo, fim_semana_inicio, fim_semana_fim',
+        'sabado_modo, sabado_inicio, sabado_fim, ' +
+        'domingo_modo, domingo_inicio, domingo_fim',
     )
     .eq('id', agenciaId)
     .single();

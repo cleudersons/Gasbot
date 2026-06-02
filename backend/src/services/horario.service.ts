@@ -1,13 +1,18 @@
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 
+type DiaModo = 'mesmo' | 'fechado' | 'customizado';
+
 interface HorarioConfig {
   atendimento_ativo?: boolean | null;
   horario_inicio?: string | null;
   horario_fim?: string | null;
   timezone?: string | null;
-  fim_semana_modo?: 'mesmo' | 'fechado' | 'customizado' | null;
-  fim_semana_inicio?: string | null;
-  fim_semana_fim?: string | null;
+  sabado_modo?: DiaModo | null;
+  sabado_inicio?: string | null;
+  sabado_fim?: string | null;
+  domingo_modo?: DiaModo | null;
+  domingo_inicio?: string | null;
+  domingo_fim?: string | null;
 }
 
 function parseHM(t: string | null | undefined, fallback: string): [number, number] {
@@ -15,27 +20,31 @@ function parseHM(t: string | null | undefined, fallback: string): [number, numbe
   return [h || 0, m || 0];
 }
 
-function ehFimDeSemana(d: Date): boolean {
-  const dow = d.getDay(); // 0=dom, 6=sáb
-  return dow === 0 || dow === 6;
-}
-
 /**
- * Resolve qual janela usar (regular ou fim de semana) dado o dia da semana.
- * Retorna null quando a agência está fechada (fim_semana_modo='fechado' no dia).
+ * Resolve qual janela usar dado o dia da semana.
+ * Retorna null quando o dia está marcado como fechado.
  */
 function janelaDoDia(ag: HorarioConfig, d: Date): { inicio: string; fim: string } | null {
-  if (ehFimDeSemana(d)) {
-    const modo = ag.fim_semana_modo ?? 'mesmo';
-    if (modo === 'fechado') return null;
-    if (modo === 'customizado') {
-      return {
-        inicio: ag.fim_semana_inicio ?? '08:00',
-        fim: ag.fim_semana_fim ?? '22:00',
-      };
-    }
-    // 'mesmo': cai no horário regular
+  const dow = d.getDay(); // 0=dom, 6=sáb
+  let modo: DiaModo = 'mesmo';
+  let inicio: string | null | undefined;
+  let fim: string | null | undefined;
+
+  if (dow === 6) {
+    modo = ag.sabado_modo ?? 'mesmo';
+    inicio = ag.sabado_inicio;
+    fim = ag.sabado_fim;
+  } else if (dow === 0) {
+    modo = ag.domingo_modo ?? 'mesmo';
+    inicio = ag.domingo_inicio;
+    fim = ag.domingo_fim;
   }
+
+  if (modo === 'fechado') return null;
+  if (modo === 'customizado') {
+    return { inicio: inicio ?? '08:00', fim: fim ?? '22:00' };
+  }
+  // 'mesmo' (ou dia útil): horário regular
   return {
     inicio: ag.horario_inicio ?? '08:00',
     fim: ag.horario_fim ?? '22:00',
@@ -49,7 +58,7 @@ export function estaNoHorario(ag: HorarioConfig): boolean {
   const agora = toZonedTime(new Date(), tz);
 
   const janela = janelaDoDia(ag, agora);
-  if (!janela) return false; // fechado no dia
+  if (!janela) return false;
 
   const [hi, mi] = parseHM(janela.inicio, '08:00');
   const [hf, mf] = parseHM(janela.fim, '22:00');
@@ -69,19 +78,17 @@ export function proximaAbertura(ag: HorarioConfig): Date {
   const tz = ag.timezone ?? 'America/Sao_Paulo';
   const agoraTZ = toZonedTime(new Date(), tz);
 
-  // Procura até 7 dias à frente o próximo dia que esteja aberto
   for (let i = 0; i < 8; i++) {
     const candidato = new Date(agoraTZ);
     candidato.setDate(candidato.getDate() + i);
     const janela = janelaDoDia(ag, candidato);
-    if (!janela) continue; // dia fechado, pula
+    if (!janela) continue;
     const [hi, mi] = parseHM(janela.inicio, '08:00');
     candidato.setHours(hi, mi, 0, 0);
-    if (i === 0 && candidato.getTime() <= agoraTZ.getTime()) continue; // hoje já passou
+    if (i === 0 && candidato.getTime() <= agoraTZ.getTime()) continue;
     return fromZonedTime(candidato, tz);
   }
 
-  // Fallback: amanhã 08:00
   const fb = new Date(agoraTZ);
   fb.setDate(fb.getDate() + 1);
   fb.setHours(8, 0, 0, 0);

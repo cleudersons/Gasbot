@@ -24,9 +24,12 @@ export interface Agencia {
   horario_inicio: string | null;
   horario_fim: string | null;
   timezone: string | null;
-  fim_semana_modo: 'mesmo' | 'fechado' | 'customizado' | null;
-  fim_semana_inicio: string | null;
-  fim_semana_fim: string | null;
+  sabado_modo: 'mesmo' | 'fechado' | 'customizado' | null;
+  sabado_inicio: string | null;
+  sabado_fim: string | null;
+  domingo_modo: 'mesmo' | 'fechado' | 'customizado' | null;
+  domingo_inicio: string | null;
+  domingo_fim: string | null;
   distribuicao_modo: string | null;
   distribuicao_ultimo_entregador: string | null;
   whatsapp_dono: string | null;
@@ -37,7 +40,8 @@ const AGENCIA_COLUMNS =
   'status_conta, plano, trial_inicio, trial_atendimentos, prompt_customizado, prompt_config, ' +
   'demo_cliente_whatsapp, agente_ativo, sla_minutos, plano_slug, limite_atendimentos, ' +
   'atendimento_ativo, horario_inicio, horario_fim, timezone, ' +
-  'fim_semana_modo, fim_semana_inicio, fim_semana_fim, ' +
+  'sabado_modo, sabado_inicio, sabado_fim, ' +
+  'domingo_modo, domingo_inicio, domingo_fim, ' +
   'distribuicao_modo, distribuicao_ultimo_entregador, whatsapp_dono';
 
 function isDemoMeta(phoneNumberId: string | null | undefined): boolean {
