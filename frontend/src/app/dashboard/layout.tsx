@@ -18,6 +18,7 @@ import {
 import TrialBanner from '@/components/TrialBanner';
 import Logo from '@/components/Logo';
 import HeaderActions from '@/components/HeaderActions';
+import AlertaPopup from '@/components/AlertaPopup';
 import { perfilCompleto } from '@/lib/perfil';
 
 export default async function DashboardLayout({
@@ -103,6 +104,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex bg-gray-50">
+      <AlertaPopup />
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="px-6 py-5 border-b border-gray-200">
           <Logo variant="row" size={36} />
