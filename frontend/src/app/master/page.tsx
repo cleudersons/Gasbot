@@ -17,6 +17,7 @@ interface AgenciaItem {
   inadimplente_desde: string | null;
   suspensa_em: string | null;
   zapi_instance_id: string | null;
+  zapi_status: string | null;
   phone_number_id: string | null;
   provider: string | null;
   pedidos_mes: number;
@@ -74,8 +75,11 @@ function colunaPlano(a: AgenciaItem): { label: string; muted?: boolean } {
 
 function whatsAppStatus(a: AgenciaItem): { cor: string; titulo: string } {
   if (a.provider === 'zapi') {
-    if (a.zapi_instance_id) return { cor: 'bg-emerald-500', titulo: 'Z-API configurada' };
-    return { cor: 'bg-gray-300', titulo: 'Z-API sem credenciais' };
+    if (!a.zapi_instance_id) return { cor: 'bg-gray-300', titulo: 'Z-API sem credenciais' };
+    if (a.zapi_status === 'conectado') return { cor: 'bg-emerald-500', titulo: 'Z-API conectada' };
+    if (a.zapi_status === 'aguardando_qr') return { cor: 'bg-amber-400', titulo: 'Z-API aguardando QR code' };
+    if (a.zapi_status === 'desconectado') return { cor: 'bg-red-400', titulo: 'Z-API desconectada' };
+    return { cor: 'bg-gray-300', titulo: 'Z-API status desconhecido — atualize no detalhe da agência' };
   }
   if (a.provider === 'meta') {
     if (a.phone_number_id) return { cor: 'bg-emerald-500', titulo: 'Meta Cloud configurada' };
@@ -217,6 +221,13 @@ export default function MasterAgenciasPage() {
             Total: {contagens.total} · Trial: {contagens.trial} · Ativas: {contagens.ativo} ·{' '}
             <span className="text-amber-700">Inadimplentes: {contagens.inadimplente}</span> ·{' '}
             <span className="text-red-700">Suspensas: {contagens.suspenso}</span>
+          </p>
+          <p className="text-[11px] text-gray-400 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Conectada</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />Aguardando QR</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />Desconectada</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-sky-400" />Demo</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300" />Sem provider</span>
           </p>
         </div>
         <button

@@ -15,6 +15,7 @@ interface AgenciaDetalhe {
   zapi_instance_id?: string | null;
   zapi_token?: string | null;
   zapi_client_token?: string | null;
+  zapi_status?: string | null;
   phone_number_id?: string | null;
   whatsapp_token?: string | null;
   whatsapp_dono?: string | null;
@@ -327,6 +328,8 @@ export default function MasterAgenciaDetalhePage() {
         </button>
       </section>
 
+      <WhatsappBlock agencia={a} onChange={fetchData} />
+
       <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-200 font-semibold">Pedidos recentes</div>
         {data.pedidos.length === 0 ? (
@@ -436,5 +439,102 @@ function Field({
         </button>
       </div>
     </div>
+  );
+}
+
+function WhatsappBlock({ agencia, onChange }: { agencia: AgenciaDetalhe; onChange: () => void }) {
+  const [qr, setQr] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(agencia.zapi_status ?? null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  if (agencia.provider !== 'zapi') return null;
+
+  async function atualizarStatus() {
+    setLoading(true);
+    setErro(null);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL ?? 'https://sutogas-backend-production.up.railway.app';
+      const r = await fetch(`${base.replace(/\/$/, '')}/api/agencias/${agencia.id}/zapi-status`, { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error ?? 'erro');
+      setStatus(d.status);
+      onChange();
+    } catch (e: any) {
+      setErro(e?.message ?? 'falhou');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function carregarQR() {
+    setLoading(true);
+    setErro(null);
+    setQr(null);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL ?? 'https://sutogas-backend-production.up.railway.app';
+      const r = await fetch(`${base.replace(/\/$/, '')}/api/agencias/${agencia.id}/qrcode`, { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error ?? 'erro');
+      setQr(d.qrcode ?? null);
+      setStatus(d.status);
+      onChange();
+    } catch (e: any) {
+      setErro(e?.message ?? 'falhou');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const cor =
+    status === 'conectado' ? 'text-green-700 bg-green-50 border-green-200' :
+    status === 'aguardando_qr' ? 'text-amber-700 bg-amber-50 border-amber-200' :
+    status === 'desconectado' ? 'text-red-700 bg-red-50 border-red-200' :
+    'text-gray-600 bg-gray-50 border-gray-200';
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">WhatsApp (Z-API)</h3>
+          <p className="text-xs text-gray-500">
+            Instance: <code className="bg-gray-100 px-1 rounded">{agencia.zapi_instance_id ?? '—'}</code>
+          </p>
+        </div>
+        <span className={`text-xs font-semibold uppercase tracking-wide border px-2 py-0.5 rounded-full ${cor}`}>
+          {status ?? 'desconhecido'}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={atualizarStatus}
+          disabled={loading}
+          className="text-sm bg-gray-100 hover:bg-gray-200 disabled:opacity-50 px-3 py-1.5 rounded-lg"
+        >
+          {loading ? 'Atualizando...' : 'Atualizar status'}
+        </button>
+        {status !== 'conectado' && (
+          <button
+            onClick={carregarQR}
+            disabled={loading}
+            className="text-sm bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg"
+          >
+            Ver QR code
+          </button>
+        )}
+      </div>
+
+      {erro && <p className="text-xs text-red-600">{erro}</p>}
+
+      {qr && (
+        <div className="border border-gray-200 rounded-lg p-3 inline-block">
+          <img src={qr} alt="QR code" className="w-64 h-64 object-contain" />
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Abra o WhatsApp no celular → Aparelhos conectados → Conectar um aparelho → escaneie esse QR.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }

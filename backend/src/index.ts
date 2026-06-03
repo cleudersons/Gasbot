@@ -824,6 +824,32 @@ app.post('/webhook/zapi', async (req, res) => {
   }
 });
 
+// Status Z-API da agência (consulta Z-API, persiste e devolve)
+app.get('/api/agencias/:id/zapi-status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: agencia, error } = await getSupabase()
+      .from('agencias')
+      .select('zapi_instance_id, zapi_token, zapi_client_token')
+      .eq('id', id)
+      .single();
+    if (error || !agencia) return res.status(404).json({ error: 'Agência não encontrada' });
+    if (!agencia.zapi_instance_id || !agencia.zapi_token) {
+      return res.status(400).json({ error: 'Agência sem credenciais Z-API' });
+    }
+    const status = await getStatus(
+      agencia.zapi_instance_id,
+      agencia.zapi_token,
+      agencia.zapi_client_token,
+    );
+    await getSupabase().from('agencias').update({ zapi_status: status }).eq('id', id);
+    res.json({ status });
+  } catch (err: any) {
+    console.error('[zapi-status]', err?.message ?? err);
+    res.status(500).json({ error: 'Falha ao consultar status Z-API' });
+  }
+});
+
 // QR Code da agência (Z-API)
 app.get('/api/agencias/:id/qrcode', async (req, res) => {
   try {
@@ -843,6 +869,9 @@ app.get('/api/agencias/:id/qrcode', async (req, res) => {
       getQRCode(agencia.zapi_instance_id, agencia.zapi_token, agencia.zapi_client_token),
       getStatus(agencia.zapi_instance_id, agencia.zapi_token, agencia.zapi_client_token),
     ]);
+
+    // Persiste o status atual pra o pontinho do master refletir realidade
+    await getSupabase().from('agencias').update({ zapi_status: status }).eq('id', id);
 
     res.json({ qrcode, status });
   } catch (err: any) {
