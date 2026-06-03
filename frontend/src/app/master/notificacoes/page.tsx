@@ -155,17 +155,21 @@ function FormCampanha({ onClose, onCriou }: { onClose: () => void; onCriou: () =
   const [link, setLink] = useState('');
   const [alvoPlano, setAlvoPlano] = useState<string>('');
   const [alvoFundador, setAlvoFundador] = useState<AlvoFundador>('todos');
+  const [alvoStatus, setAlvoStatus] = useState<'todos' | 'trial' | 'ativo' | 'inadimplente' | 'suspenso'>('todos');
+  const [alvoZapi, setAlvoZapi] = useState<'todos' | 'conectado' | 'desconectado' | 'aguardando_qr' | 'sem_zapi'>('todos');
   const [preview, setPreview] = useState<number | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams({ fundador: alvoFundador });
     if (alvoPlano) params.set('plano', alvoPlano);
+    if (alvoStatus !== 'todos') params.set('status', alvoStatus);
+    if (alvoZapi !== 'todos') params.set('zapi', alvoZapi);
     fetch(`/api/master/notificacoes/preview?${params.toString()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => setPreview(j.total ?? 0))
       .catch(() => setPreview(null));
-  }, [alvoPlano, alvoFundador]);
+  }, [alvoPlano, alvoFundador, alvoStatus, alvoZapi]);
 
   async function enviar() {
     if (!titulo.trim()) return;
@@ -180,6 +184,8 @@ function FormCampanha({ onClose, onCriou }: { onClose: () => void; onCriou: () =
         link: link.trim() || undefined,
         alvo_plano: alvoPlano || null,
         alvo_fundador: alvoFundador,
+        alvo_status_conta: alvoStatus,
+        alvo_zapi: alvoZapi,
       }),
     });
     setEnviando(false);
@@ -259,6 +265,34 @@ function FormCampanha({ onClose, onCriou }: { onClose: () => void; onCriou: () =
             <option value="todos">Todos</option>
             <option value="fundador">Só fundadores</option>
             <option value="nao_fundador">Só não-fundadores</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Status da conta</label>
+          <select
+            value={alvoStatus}
+            onChange={(e) => setAlvoStatus(e.target.value as typeof alvoStatus)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="todos">Todos</option>
+            <option value="trial">Trial</option>
+            <option value="ativo">Ativo</option>
+            <option value="inadimplente">Inadimplente</option>
+            <option value="suspenso">Suspenso</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Conexão Z-API</label>
+          <select
+            value={alvoZapi}
+            onChange={(e) => setAlvoZapi(e.target.value as typeof alvoZapi)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="todos">Qualquer conexão</option>
+            <option value="conectado">Z-API conectada</option>
+            <option value="desconectado">Z-API desconectada</option>
+            <option value="aguardando_qr">Aguardando QR</option>
+            <option value="sem_zapi">Sem Z-API (Meta/demo)</option>
           </select>
         </div>
       </div>

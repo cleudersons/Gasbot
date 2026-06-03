@@ -45,6 +45,8 @@ interface Body {
   link?: string;
   alvo_plano?: string | null;   // 'basico'|'pro'|'trial' ou null
   alvo_fundador: 'todos' | 'fundador' | 'nao_fundador';
+  alvo_status_conta?: 'todos' | 'trial' | 'ativo' | 'inadimplente' | 'suspenso';
+  alvo_zapi?: 'todos' | 'conectado' | 'desconectado' | 'aguardando_qr' | 'sem_zapi';
 }
 
 export async function POST(req: Request) {
@@ -64,6 +66,16 @@ export async function POST(req: Request) {
   if (body.alvo_plano) q = q.eq('plano', body.alvo_plano);
   if (body.alvo_fundador === 'fundador') q = q.eq('programa_fundador', true);
   if (body.alvo_fundador === 'nao_fundador') q = q.eq('programa_fundador', false);
+  if (body.alvo_status_conta && body.alvo_status_conta !== 'todos') {
+    q = q.eq('status_conta', body.alvo_status_conta);
+  }
+  if (body.alvo_zapi && body.alvo_zapi !== 'todos') {
+    if (body.alvo_zapi === 'sem_zapi') {
+      q = q.neq('provider', 'zapi');
+    } else {
+      q = q.eq('provider', 'zapi').eq('zapi_status', body.alvo_zapi);
+    }
+  }
 
   const { data: agencias, error: errAg } = await q;
   if (errAg) return NextResponse.json({ error: errAg.message }, { status: 500 });
