@@ -16,6 +16,7 @@ interface AgenciaDetalhe {
   zapi_token?: string | null;
   zapi_client_token?: string | null;
   zapi_status?: string | null;
+  criado_em?: string | null;
   phone_number_id?: string | null;
   whatsapp_token?: string | null;
   whatsapp_dono?: string | null;
@@ -155,7 +156,18 @@ export default function MasterAgenciaDetalhePage() {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{a.nome}</h1>
-        <p className="text-sm text-gray-500">ID: {a.id}</p>
+        <p className="text-sm text-gray-500">
+          ID: {a.id}
+          {a.criado_em && (
+            <span className="ml-3">
+              · Cliente desde{' '}
+              <span className="font-medium text-gray-700">
+                {new Date(a.criado_em).toLocaleDateString('pt-BR')}
+              </span>
+              <span className="text-gray-400"> ({tempoCliente(a.criado_em)})</span>
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -363,6 +375,17 @@ export default function MasterAgenciaDetalhePage() {
       {msg && <div className="text-sm text-gray-700">{msg}</div>}
     </div>
   );
+}
+
+function tempoCliente(iso: string): string {
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+  if (dias === 0) return 'hoje';
+  if (dias === 1) return '1 dia';
+  if (dias < 30) return `${dias} dias`;
+  const meses = Math.floor(dias / 30);
+  if (meses < 12) return `${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+  const anos = Math.floor(dias / 365);
+  return `${anos} ${anos === 1 ? 'ano' : 'anos'}`;
 }
 
 function Card({ label, value }: { label: string; value: number }) {

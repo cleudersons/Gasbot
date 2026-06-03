@@ -11,7 +11,7 @@ export async function GET() {
   const { data: agencias, error } = await db
     .from('agencias')
     .select(
-      'id, nome, plano, status_conta, whatsapp_dono, trial_inicio, vencimento_plano, inadimplente_desde, suspensa_em, zapi_instance_id, zapi_status, phone_number_id, provider',
+      'id, nome, plano, status_conta, whatsapp_dono, trial_inicio, vencimento_plano, inadimplente_desde, suspensa_em, zapi_instance_id, zapi_status, phone_number_id, provider, criado_em',
     )
     .is('deletada_em', null)
     .order('nome');

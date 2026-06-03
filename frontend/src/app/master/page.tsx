@@ -21,6 +21,7 @@ interface AgenciaItem {
   phone_number_id: string | null;
   provider: string | null;
   pedidos_mes: number;
+  criado_em: string | null;
 }
 
 const PLANO_STYLES: Record<string, string> = {
@@ -54,6 +55,19 @@ function formatDataCurta(iso: string | null): string {
 function diasAte(iso: string | null): number | null {
   if (!iso) return null;
   return Math.ceil((new Date(iso).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function formatCadastro(iso: string | null): string {
+  if (!iso) return '—';
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+  const data = formatDataCurta(iso);
+  if (dias === 0) return `${data} (hoje)`;
+  if (dias === 1) return `${data} (ontem)`;
+  if (dias < 30) return `${data} (${dias}d)`;
+  const meses = Math.floor(dias / 30);
+  if (meses < 12) return `${data} (${meses}m)`;
+  const anos = Math.floor(dias / 365);
+  return `${data} (${anos}a)`;
 }
 
 function colunaPlano(a: AgenciaItem): { label: string; muted?: boolean } {
@@ -302,6 +316,7 @@ export default function MasterAgenciasPage() {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">WhatsApp Dono</th>
                 <th className="px-4 py-3 text-right">Pedidos/mês</th>
+                <th className="px-4 py-3">Cadastro</th>
                 <th className="px-4 py-3">Vencimento</th>
                 <th className="px-4 py-3">Ações</th>
               </tr>
@@ -323,6 +338,9 @@ export default function MasterAgenciasPage() {
                     <td className="px-4 py-3"><StatusBadge status={a.status_conta} /></td>
                     <td className="px-4 py-3 text-gray-600">{a.whatsapp_dono ?? '—'}</td>
                     <td className="px-4 py-3 text-right">{a.pedidos_mes}</td>
+                    <td className="px-4 py-3 text-gray-600" title={a.criado_em ?? ''}>
+                      {formatCadastro(a.criado_em)}
+                    </td>
                     <td className={`px-4 py-3 ${venc.muted ? 'text-gray-500' : 'text-gray-800 font-medium'}`}>
                       {venc.label}
                     </td>
