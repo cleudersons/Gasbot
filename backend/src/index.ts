@@ -66,6 +66,7 @@ import './jobs/fundador-feedback.job';
 import './jobs/lembrete-inicio-expediente.job';
 import './jobs/verificar-vencimento.job';
 import './jobs/zapi-status-poll.job';
+import './jobs/zapi-desconectada.job';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
