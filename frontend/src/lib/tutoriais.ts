@@ -79,7 +79,7 @@ export const TUTORIAIS: Tutorial[] = [
     passoKey: 'conexaoOk',
     titulo: 'Conectar seu WhatsApp',
     subtitulo: 'Os 2 jeitos de ligar o WhatsApp do depósito ao SutoGas: Z-API (QR Code) ou Meta API (oficial)',
-    // youtubeId: 'PREENCHA_QUANDO_GRAVAR',
+    youtubeId: 'BpszO2JcM1o',
     passos: [
       {
         titulo: 'Caminho 1 — Z-API (mais rápido, leitura de QR Code)',
