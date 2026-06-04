@@ -16,7 +16,11 @@ export interface PromptConfig {
   pix_titular?: string;       // nome do titular da conta que recebe
   marca_gas?: string;         // ex.: Supergasbras Dourado, Liquigás, Ultragaz
   taxa_entrega?: string;      // ex.: R$ 15 — programa Gás do Povo
-  taxa_cartao?: string;       // ex.: R$ 5,00 — somada quando cliente paga no cartão
+  taxa_cartao?: string;       // legado — usado se taxa_credito/taxa_debito não estiverem preenchidas
+  taxa_credito?: string;      // ex.: R$ 5,00 — somada em cartão de crédito
+  taxa_debito?: string;       // ex.: R$ 2,00 — somada em cartão de débito
+  tempo_entrega?: string;     // ex.: 20 minutos — usado quando cliente pergunta se vai demorar
+  pedir_ponto_referencia?: boolean; // se true, bot pergunta ponto de referência após o endereço
   whatsapp_alternativo?: string; // p/ "Gás do Povo" e "Vale Gás" — cliente é redirecionado
   pix_automatico?: boolean;   // true = manda chave PIX automaticamente quando pagamento for PIX
   pix_tipo_chave?: 'cnpj' | 'cpf' | 'email' | 'telefone' | 'aleatoria';
@@ -388,7 +392,11 @@ export function buildPrompt(c: PromptConfig): string {
   const pixTitular = c.pix_titular?.trim() || '';
   const marcaGas = c.marca_gas?.trim() || '';
   const taxaEntrega = c.taxa_entrega?.trim() || '';
-  const taxaCartao = c.taxa_cartao?.trim() || '';
+  const taxaCartaoLegado = c.taxa_cartao?.trim() || '';
+  const taxaCredito = c.taxa_credito?.trim() || taxaCartaoLegado;
+  const taxaDebito = c.taxa_debito?.trim() || taxaCartaoLegado;
+  const tempoEntrega = c.tempo_entrega?.trim() || '';
+  const pedirPontoRef = !!c.pedir_ponto_referencia;
   const whatsAlternativo = c.whatsapp_alternativo?.trim() || '';
   const tom = DESCRICAO_TOM[c.tom] ?? DESCRICAO_TOM.simpatico;
 
@@ -474,16 +482,41 @@ export function buildPrompt(c: PromptConfig): string {
     );
   }
 
-  if (taxaCartao) {
+  if (taxaCredito || taxaDebito) {
+    const linhas: string[] = [];
+    if (taxaCredito) linhas.push(`Taxa do CARTÃO DE CRÉDITO: ${taxaCredito}.`);
+    if (taxaDebito) linhas.push(`Taxa do CARTÃO DE DÉBITO: ${taxaDebito}.`);
+    linhas.push(
+      'Quando o cliente escolher cartão, avise da taxa em UMA frase curta e natural ANTES da confirmação. Diferencie crédito e débito se as taxas forem diferentes (ex: "No crédito tem uma taxa de R$ 5; no débito é R$ 2").',
+      'No RESUMO FINAL do pedido, o VALOR TOTAL deve OBRIGATORIAMENTE ser o preço base + a taxa do cartão escolhido. Mostre o total JÁ COM A TAXA EMBUTIDA, sem detalhar o cálculo (ex: se preço é R$ 120 e a taxa do crédito é R$ 5, mostre "Total: R$ 125,00"). Não mostre "120 + 5".',
+      'Se o cliente trocar a forma de pagamento (ex: avisou crédito, depois quis Pix), recalcule o total SEM a taxa.',
+      'NUNCA aplique essas taxas em dinheiro, Pix ou vale.',
+    );
+    partes.push(bloco('TAXAS DE CARTÃO:', linhas.join('\n')));
+  }
+
+  if (tempoEntrega) {
     partes.push(
       bloco(
-        'TAXA DE CARTÃO:',
+        'TEMPO DE ENTREGA:',
         [
-          `Valor da taxa: ${taxaCartao}. ESSA TAXA SÓ SE APLICA quando o cliente escolhe pagar no CARTÃO (crédito ou débito). NÃO aplique a taxa pra dinheiro, Pix ou vale.`,
-          'Quando o cliente escolher CARTÃO como forma de pagamento, avise espontaneamente em UMA frase curta e natural antes de confirmar o pedido: por exemplo "No cartão tem uma taxa de ' + taxaCartao + ', tudo bem?". Aguarde o ok.',
-          'No RESUMO FINAL do pedido (passo de confirmação), o VALOR TOTAL deve OBRIGATORIAMENTE incluir a taxa do cartão somada — e mencione no resumo que esse total já inclui a taxa do cartão (ex: "Total: R$ XX,XX já com a taxa do cartão").',
-          'Se o cliente trocar a forma de pagamento depois (ex: avisou cartão, depois preferiu Pix), recalcule o total SEM a taxa.',
-          'NUNCA aplique essa taxa quando a forma de pagamento for dinheiro, Pix ou vale.',
+          `Tempo estimado: ${tempoEntrega}.`,
+          'Quando o cliente perguntar se vai demorar ("vai demorar?", "quanto tempo?", "rapidinho?", "qual a previsão?"), responda naturalmente com esse tempo máximo. Ex: "No máximo ' + tempoEntrega + '". Frase curta, sem prometer mais rápido.',
+          'NÃO mencione esse tempo espontaneamente — só quando o cliente perguntar.',
+        ].join('\n'),
+      ),
+    );
+  }
+
+  if (pedirPontoRef) {
+    partes.push(
+      bloco(
+        'PONTO DE REFERÊNCIA:',
+        [
+          'Depois que tiver rua + número + bairro completos, pergunte UMA vez de forma natural: "Tem algum ponto de referência?" (ou variação curta).',
+          'Se o cliente responder com um ponto (ex: "do lado da padaria", "em frente ao mercado"), ANEXE essa informação ao endereço no resumo do pedido e no token PEDIDO_CONFIRMADO. Formato: "Rua X, 123, Bairro Y (ponto: do lado da padaria)".',
+          'Se o cliente disser que NÃO tem ponto de referência, ou ignorar, NÃO insista. Siga pro próximo passo do fluxo (pagamento).',
+          'Faça essa pergunta SÓ UMA VEZ por pedido. NÃO repita.',
         ].join('\n'),
       ),
     );

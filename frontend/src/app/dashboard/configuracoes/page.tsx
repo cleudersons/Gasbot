@@ -477,21 +477,62 @@ export default function ConfiguracoesPage() {
                 Descreva o valor e em quais casos se aplica. A atendente soma no resumo do pedido.
               </p>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Taxa do cartão de crédito <span className="text-gray-400">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={promptConfig.taxa_credito ?? ''}
+                  onChange={(e) => setField('taxa_credito', e.target.value)}
+                  placeholder="Ex.: R$ 5,00"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Taxa do cartão de débito <span className="text-gray-400">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={promptConfig.taxa_debito ?? ''}
+                  onChange={(e) => setField('taxa_debito', e.target.value)}
+                  placeholder="Ex.: R$ 2,00"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <p className="text-xs text-gray-500 col-span-1 md:col-span-2 -mt-1">
+                Quando o cliente escolher cartão, a atendente avisa da taxa e mostra o total já com a taxa embutida. Deixe vazio se não cobra.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1">
-                Taxa de cartão <span className="text-gray-400">(opcional)</span>
+                Tempo de entrega <span className="text-gray-400">(opcional)</span>
               </label>
               <input
                 type="text"
-                value={promptConfig.taxa_cartao ?? ''}
-                onChange={(e) => setField('taxa_cartao', e.target.value)}
-                placeholder="Ex.: R$ 5,00"
+                value={promptConfig.tempo_entrega ?? ''}
+                onChange={(e) => setField('tempo_entrega', e.target.value)}
+                placeholder="Ex.: 20 minutos"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Quando o cliente escolher cartão, a atendente avisa da taxa e soma no total. Deixe vazio se não cobra.
+                Resposta usada quando o cliente pergunta se vai demorar. A atendente NÃO menciona espontaneamente.
               </p>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!promptConfig.pedir_ponto_referencia}
+                onChange={(e) => setField('pedir_ponto_referencia', e.target.checked)}
+              />
+              <span className="text-sm">
+                Pedir ponto de referência depois do endereço
+              </span>
+            </label>
             <div>
               <label className="block text-sm font-medium mb-1">
                 WhatsApp alternativo (Gás do Povo / Vale Gás){' '}
