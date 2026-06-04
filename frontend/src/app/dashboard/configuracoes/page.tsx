@@ -479,6 +479,21 @@ export default function ConfiguracoesPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
+                Taxa de cartão <span className="text-gray-400">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={promptConfig.taxa_cartao ?? ''}
+                onChange={(e) => setField('taxa_cartao', e.target.value)}
+                placeholder="Ex.: R$ 5,00"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Quando o cliente escolher cartão, a atendente avisa da taxa e soma no total. Deixe vazio se não cobra.
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
                 WhatsApp alternativo (Gás do Povo / Vale Gás){' '}
                 <span className="text-gray-400">(opcional)</span>
               </label>
