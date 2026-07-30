@@ -54,6 +54,21 @@ function isDemoZapi(instanceId: string | null | undefined): boolean {
   return !!demo && !!instanceId && demo === instanceId;
 }
 
+/**
+ * Flag global (config_globais.agente_demo_pausado) que o master liga em
+ * /master/configuracoes pra pausar o agente de IA no número demo/teste.
+ * Diferente do agente_ativo por agência: aqui pausa TODAS as conversas do
+ * trial demo de uma vez, sem precisar desativar agência por agência.
+ */
+async function agenteDemoPausado(): Promise<boolean> {
+  const { data } = await getSupabase()
+    .from('config_globais')
+    .select('agente_demo_pausado')
+    .eq('id', true)
+    .maybeSingle();
+  return data?.agente_demo_pausado === true;
+}
+
 async function buscarPorPhoneNumber(phoneNumberId: string): Promise<Agencia | null> {
   const { data } = await getSupabase()
     .from('agencias')
@@ -127,6 +142,10 @@ export async function resolverAgenciaFromMeta(
   clienteWhatsapp: string,
 ): Promise<Agencia | null> {
   if (phoneNumberIdRecebedor && isDemoMeta(phoneNumberIdRecebedor)) {
+    if (await agenteDemoPausado()) {
+      console.warn('[trial] Agente demo pausado pelo master — mensagem ignorada');
+      return null;
+    }
     const existente = await buscarAgenciaTrialDemo(clienteWhatsapp);
     return existente ?? (await criarAgenciaTrialDemo(clienteWhatsapp));
   }
@@ -147,6 +166,10 @@ export async function resolverAgenciaFromZapi(
   clienteWhatsapp: string,
 ): Promise<Agencia | null> {
   if (instanceId && isDemoZapi(instanceId)) {
+    if (await agenteDemoPausado()) {
+      console.warn('[trial] Agente demo pausado pelo master — mensagem ignorada');
+      return null;
+    }
     const existente = await buscarAgenciaTrialDemo(clienteWhatsapp);
     return existente ?? (await criarAgenciaTrialDemo(clienteWhatsapp));
   }

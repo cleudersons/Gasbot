@@ -20,6 +20,35 @@
 
 ---
 
+## 🚨 BUG PRIORITÁRIO — Compra não ativa plano
+
+**Reportado em 2026-05-30.** Usuário fez uma compra de plano hoje e a conta não
+mudou de free/trial pro plano comprado. Cliente paga mas continua sem acesso ao
+recurso correspondente.
+
+**Antes de prosseguir pro Item 9** precisamos diagnosticar e corrigir:
+
+1. Verificar se webhook `pagamento_confirmado` chegou (logs Railway backend +
+   tabela `integracao_log` no banco Sutofly)
+2. Conferir se o `oferta` (slug) do checkout bate com algum slug ativo em
+   `planos.slug` (lookup falha → 400 silencioso pro webhook)
+3. Conferir se o email da compra existe em `usuarios.email` (caso não, deveria
+   criar agência nova; ver `checkout.route.ts:110-150`)
+4. Conferir se `agencias.plano` foi de fato atualizado pra `basico` ou `pro`
+5. Se trial recente, conferir se `status_conta` foi pra `ativo` (linha 163 do
+   webhook)
+
+**Hipóteses iniciais:**
+- (H1) Slug da oferta da Sutofly não bate com slug cadastrado em `/master/planos`
+- (H2) Usuário já tinha conta trial e o webhook localizou pelo email mas o
+  UPDATE falhou silenciosamente
+- (H3) Webhook nem chegou (Sutofly não disparou ou rede falhou)
+
+**Garantia obrigatória do fix:** cliente que paga deve receber acesso ao plano
+em < 1 minuto, automaticamente, sem intervenção manual.
+
+---
+
 ## Ordem priorizada (do mais ao menos urgente)
 
 | # | Item | Urgência | Tamanho | Bloco |
